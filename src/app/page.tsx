@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, Trash2, FileText, Receipt, Truck, ChevronDown, ChevronUp } from "lucide-react";
 import { TenderFormData, TenderItem, defaultFormData, defaultItem, POWER_STATIONS } from "@/lib/constants";
 import { generateTenderPDF, generateTaxInvoice, generateDeliveryMemo } from "@/lib/pdfGenerator";
+import { generateDeclarationPDF } from "@/lib/declarationPDF";
 
 export default function Home() {
   const [form, setForm] = useState<TenderFormData>({ ...defaultFormData, items: [{ ...defaultItem }] });
@@ -202,6 +203,14 @@ export default function Home() {
           >
             <FileText size={16} />
             Generate Tender Documents (Combined PDF)
+          </button>
+          <button
+            onClick={() => generateDeclarationPDF(form)}
+            className="flex items-center gap-2 px-6 py-3 rounded-lg text-white font-bold text-sm shadow-md hover:opacity-90 transition-opacity"
+            style={{ background: "#2563eb" }}
+          >
+            <FileText size={16} />
+            Declaration / Undertaking (Exact Format)
           </button>
           <button
             onClick={() => generateTaxInvoice(form)}
