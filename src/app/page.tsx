@@ -111,6 +111,60 @@ export default function Home() {
                 />
               </div>
             )}
+
+            {/* Deviation Sheet toggle */}
+            <div className="col-span-2 border-t pt-4 mt-1">
+              <label className="block text-xs font-semibold text-gray-600 mb-2">Deviation Sheet</label>
+              <div className="flex gap-4 mb-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="deviationStatus" value="nil"
+                    checked={form.deviationStatus === "nil"}
+                    onChange={() => setField("deviationStatus", "nil")}
+                    className="accent-orange-500" />
+                  <span className="text-sm font-medium text-gray-700">NIL / No Deviation</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="deviationStatus" value="deviation"
+                    checked={form.deviationStatus === "deviation"}
+                    onChange={() => setField("deviationStatus", "deviation")}
+                    className="accent-orange-500" />
+                  <span className="text-sm font-medium text-gray-700">Has Deviation</span>
+                </label>
+              </div>
+              {form.deviationStatus === "deviation" && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Deviation Details (one per line)</label>
+                  <textarea
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1"
+                    rows={4}
+                    value={form.deviationText}
+                    onChange={(e) => setField("deviationText", e.target.value)}
+                    placeholder="Describe each deviation on a separate line..."
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Questionnaire fields */}
+            <div className="col-span-2 border-t pt-4">
+              <label className="block text-xs font-semibold text-gray-600 mb-2">Questionnaire Details</label>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Dealer Type</label>
+                  <select
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none"
+                    value={form.dealerType}
+                    onChange={(e) => setField("dealerType", e.target.value as "Manufacturer" | "Authorized Dealer" | "Dealer")}
+                  >
+                    <option>Authorized Dealer</option>
+                    <option>Manufacturer</option>
+                    <option>Dealer</option>
+                  </select>
+                </div>
+                <Field label="Make Offered" value={form.makeOffered} onChange={(v) => setField("makeOffered", v)} placeholder="e.g. ABB / Siemens" />
+                <Field label="Delivery Period" value={form.deliveryPeriod} onChange={(v) => setField("deliveryPeriod", v)} placeholder="As per tender" />
+              </div>
+            </div>
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-600 mb-1">Power Station</label>
               <select

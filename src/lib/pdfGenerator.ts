@@ -3,6 +3,7 @@
 import jsPDF from "jspdf";
 import { COMPANY, POWER_STATIONS, TenderFormData } from "./constants";
 import { addDeclarationToDoc, loadSterlingImages, addLetterheadHeader, addLetterheadFooter } from "./declarationPDF";
+import { addAnnexureCToDoc, addDeviationSheetToDoc, addQuestionnaireToDoc } from "./documentPDFs";
 
 const ORANGE = [249, 115, 22] as const;
 const NAVY = [30, 58, 95] as const;
@@ -597,20 +598,25 @@ export async function generateTenderPDF(data: TenderFormData): Promise<void> {
   doc.addPage();
   await addDeclarationToDoc(doc, data, logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl);
 
-  // Pages 3-6: remaining docs (old style, to be updated one by one)
-  const remaining = [
-    generateAnnexureC,
-    generateItemDetails,
-    generateDeviationSheet,
-    generateQuestionnaire,
-  ];
+  // Page 3: Annexure C — exact format
+  doc.addPage();
+  await addAnnexureCToDoc(doc, data, logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl);
 
-  remaining.forEach((fn) => {
-    doc.addPage();
+  // Page 4: Item Details
+  doc.addPage();
+  {
     const hb = addHeader(doc, pageWidth);
     addFooter(doc, pageWidth, pageHeight);
-    fn(doc, data, hb + 4, pageWidth, pageHeight);
-  });
+    generateItemDetails(doc, data, hb + 4, pageWidth, pageHeight);
+  }
+
+  // Page 5: Deviation Sheet — exact format with NIL/deviation toggle
+  doc.addPage();
+  await addDeviationSheetToDoc(doc, data, logoDataUrl);
+
+  // Page 6: Questionnaire — exact format
+  doc.addPage();
+  await addQuestionnaireToDoc(doc, data, logoDataUrl);
 
   const tenderRef = data.tenderNumber || data.rfxNumber || "tender";
   doc.save(`Sterling_Tender_${tenderRef}_${data.date || "doc"}.pdf`);

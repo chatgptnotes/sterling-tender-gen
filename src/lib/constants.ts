@@ -71,6 +71,13 @@ export interface TenderFormData {
   customStationAddress: string;
   supplyType: "indigenous" | "imported";
   importSupplier: string;
+  // Deviation Sheet
+  deviationStatus: "nil" | "deviation";
+  deviationText: string;
+  // Questionnaire
+  dealerType: "Manufacturer" | "Authorized Dealer" | "Dealer";
+  makeOffered: string;
+  deliveryPeriod: string;
   items: TenderItem[];
   invoiceNumber: string;
   dmNumber: string;
@@ -104,6 +111,11 @@ export const defaultFormData: TenderFormData = {
   customStationAddress: "",
   supplyType: "indigenous",
   importSupplier: "",
+  deviationStatus: "nil",
+  deviationText: "",
+  dealerType: "Authorized Dealer",
+  makeOffered: "",
+  deliveryPeriod: "As per tender",
   items: [{ ...defaultItem }],
   invoiceNumber: "",
   dmNumber: "",

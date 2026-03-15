@@ -1,0 +1,385 @@
+"use client";
+
+import jsPDF from "jspdf";
+import { COMPANY, POWER_STATIONS, TenderFormData } from "./constants";
+import {
+  addLetterheadHeader,
+  addLetterheadFooter,
+  formatDate,
+  getStation,
+} from "./declarationPDF";
+
+// ─── ANNEXURE C ──────────────────────────────────────────────────────────────
+export async function addAnnexureCToDoc(
+  doc: jsPDF,
+  data: TenderFormData,
+  logoDataUrl: string,
+  stampDataUrl?: string,
+  sig1DataUrl?: string,
+  sig2DataUrl?: string
+): Promise<void> {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentWidth = pageWidth - 2 * margin;
+  const station = getStation(data);
+
+  addLetterheadFooter(doc, pageWidth, pageHeight);
+  let y = addLetterheadHeader(doc, logoDataUrl, pageWidth);
+  y += 3;
+
+  // Title
+  doc.setFont("times", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(0, 0, 0);
+  doc.text("ANNEXURE-C", pageWidth / 2, y, { align: "center" });
+  y += 5;
+  doc.setFontSize(10.5);
+  doc.text("UNDERTAKING AND COMMITMENT FROM BIDDERS", pageWidth / 2, y, { align: "center" });
+  const uw = doc.getTextWidth("UNDERTAKING AND COMMITMENT FROM BIDDERS");
+  doc.setLineWidth(0.3);
+  doc.line(pageWidth / 2 - uw / 2, y + 0.5, pageWidth / 2 + uw / 2, y + 0.5);
+  y += 7;
+
+  // Date
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  doc.text(`Date: ${formatDate(data.date)}`, pageWidth - margin, y, { align: "right" });
+  y += 6;
+
+  // To block
+  doc.text("To,", margin, y); y += 5;
+  doc.setFont("times", "bold");
+  doc.text(station.chiefEngineer, margin, y); y += 5;
+  doc.setFont("times", "normal");
+  doc.text(station.name, margin, y); y += 5;
+  const addrLines = doc.splitTextToSize(station.address, contentWidth * 0.6);
+  addrLines.forEach((l: string) => { doc.text(l, margin, y); y += 5; });
+  y += 2;
+
+  doc.setFont("times", "bold");
+  doc.text("Dear Sir,", margin, y); y += 6;
+
+  // Opening
+  doc.setFont("times", "normal");
+  const tenderDate = data.tenderIssueDate ? formatDate(data.tenderIssueDate) : formatDate(data.date);
+  const opening = `In accordance with your Tender for RFx No: ${data.rfxNumber || "[RFx]"} ${data.tenderDescription || "[Description]"} Under your Tender No ${data.tenderNumber || "[Tender No]"} dated ${tenderDate} M/s. ${COMPANY.name}, ${COMPANY.address} (Hereinafter called the Tenderer) hereby submit the undertaking as under:`;
+  const openLines = doc.splitTextToSize(opening, contentWidth);
+  doc.text(openLines, margin, y);
+  y += openLines.length * 5 + 4;
+
+  // Point i
+  const p1 = `i.\tThe Tenderer commits to undertake all measures necessary to prevent conflict of interest with other bidders which may lead to anti-competitive practices to the detriment of Purchaser interests.`;
+  const p1Lines = doc.splitTextToSize(p1, contentWidth);
+  doc.text(p1Lines, margin, y);
+  y += p1Lines.length * 5 + 3;
+
+  // Point ii
+  doc.text("ii.\tThe Tenderer has read and understood the following terms and conditions of the Purchaser.", margin, y);
+  y += 10;
+
+  doc.setFont("times", "bold");
+  doc.text("Terms and Conditions that are binding on bidder for the duration of course of Tender:", margin, y);
+  y += 7;
+
+  doc.setFont("times", "normal");
+  doc.text("i.\tA bidder may be considered to have a conflict of interest with one or more parties in this bidding process, if:", margin, y);
+  y += 6;
+
+  const subPoints = [
+    "a)  They have controlling partner(s) in common; or",
+    "b)  They receive or have received any direct or indirect subsidy/financial stake from any of them; or",
+    "c)  They have the same legal representative/agent for purpose of this bid; or",
+    "d)  They have relationship with each other, directly or through common third parties, that puts them in a position to have access to information about or influence on the bid of another bidder; or",
+    "e)  Bidder participates in more than one bid in this bidding process. Participation by a bidder in more than one Bid will result in the disqualification of all bids in which the parties are involved.",
+    "f)   In cases of Authorized Dealer/Channel Partner, quoting on behalf of their principal manufacturers, one agent cannot represent two manufacturers or quote on their behalf in a particular tender enquiry.",
+    "g) A Bidder or any of its affiliates participated as a consultant in the preparation of the design or technical specification of the contract that is the subject of the Bid;",
+    "h) In case of a holding company having more than one independently manufacturing units, only one unit should quote. Similar restrictions would apply to closely related sister companies.",
+    "i)   If bidding firm or their personnel have relationship or financial or business transactions with any official of procuring entity who are directly or indirectly related to the tender or execution of contract.",
+    "j)  If improper use of information obtained by prospective bidder from the procuring entity with an intent to gain unfair advantage in procurement process or for personal gain.",
+  ];
+
+  subPoints.forEach((pt) => {
+    const lines = doc.splitTextToSize(pt, contentWidth - 6);
+    doc.text(lines, margin + 4, y);
+    y += lines.length * 4.8 + 1.5;
+  });
+
+  y += 2;
+  const remainingPoints = [
+    "ii.\tFor the purposes of this clause, Term 'control' as applied to any person, means the possession, directly or indirectly, of the power to direct or cause the direction of the management or policies of that person whether through ownership of voting securities, by contract, or otherwise.",
+    "iii.\tThe bidder found to have a conflict of interest shall be disqualified.",
+    "iv.\tIf the Purchaser/Procurer has disqualified bidder from the bidding process or has terminated contract on these grounds, the Purchaser/Procurer shall forfeit EMD, encash security deposit and contract performance deposit in addition to excluding bidder from future award process and terminating the contract.",
+    "v.\tThis undertaking shall form a part of the contract.",
+  ];
+
+  remainingPoints.forEach((pt) => {
+    const lines = doc.splitTextToSize(pt, contentWidth);
+    doc.text(lines, margin, y);
+    y += lines.length * 5 + 2;
+  });
+
+  y += 3;
+
+  // Stamp
+  if (stampDataUrl) {
+    doc.addImage(stampDataUrl, "PNG", pageWidth - margin - 30, y - 4, 26, 26);
+  }
+
+  // Signature block
+  doc.text(`Date: ${formatDate(data.date)}`, margin, y + 18);
+  doc.setFont("times", "bold");
+  doc.text("(Printed Name) AKHIL BAHALE", pageWidth - margin, y + 18, { align: "right" });
+  y += 22;
+  doc.setFont("times", "normal");
+  doc.text("Place: Nagpur", margin, y);
+  doc.text("(Designation) Proprietor", pageWidth - margin, y, { align: "right" });
+  y += 6;
+  doc.text("Signature- ____________________", pageWidth - margin, y, { align: "right" });
+  y += 10;
+
+  // Witnesses
+  doc.setFont("times", "bold");
+  doc.text("In presence of:", margin, y); y += 5;
+  doc.setFont("times", "normal");
+  doc.text("WITNESS (with full name, designation, address & official seal, if any)", margin, y); y += 7;
+  doc.text(`(1) ${COMPANY.witnesses[0]}`, margin, y);
+  if (sig1DataUrl) doc.addImage(sig1DataUrl, "PNG", margin + 110, y - 6, 28, 9);
+  y += 10;
+  doc.text(`(2) ${COMPANY.witnesses[1]}`, margin, y);
+  if (sig2DataUrl) doc.addImage(sig2DataUrl, "PNG", margin + 110, y - 6, 28, 9);
+  y += 10;
+
+  doc.setFont("times", "italic");
+  doc.setFontSize(8.5);
+  doc.text("Please indicate the name and address of the projects / station / offices where the undertaking is to be executed.", margin, y);
+}
+
+// ─── DEVIATION SHEET ─────────────────────────────────────────────────────────
+export async function addDeviationSheetToDoc(
+  doc: jsPDF,
+  data: TenderFormData,
+  logoDataUrl: string
+): Promise<void> {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentWidth = pageWidth - 2 * margin;
+  const station = getStation(data);
+
+  addLetterheadFooter(doc, pageWidth, pageHeight);
+  let y = addLetterheadHeader(doc, logoDataUrl, pageWidth);
+  y += 4;
+
+  // MSPGCL header line
+  doc.setFont("times", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.text("MAHARASHTRA STATE POWER GENERATION COMPANY LIMITED", pageWidth / 2, y, { align: "center" });
+  y += 7;
+
+  // Title
+  doc.setFontSize(12);
+  doc.text("DEVIATIONS (IF ANY)", pageWidth / 2, y, { align: "center" });
+  const dw = doc.getTextWidth("DEVIATIONS (IF ANY)");
+  doc.setLineWidth(0.4);
+  doc.line(pageWidth / 2 - dw / 2, y + 0.8, pageWidth / 2 + dw / 2, y + 0.8);
+  y += 8;
+
+  // Tender info
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  doc.text(`Tender for: ${data.rfxNumber || "[RFx Number]"}`, margin, y); y += 5;
+  const descLines = doc.splitTextToSize(data.tenderDescription || "[Tender Description]", contentWidth);
+  doc.text(descLines, margin, y);
+  y += descLines.length * 5 + 3;
+  doc.text(`Tender No: ${data.tenderNumber || "[Tender Number]"}`, margin, y);
+  doc.text(`Date: ${formatDate(data.date)}`, pageWidth - margin, y, { align: "right" });
+  y += 8;
+
+  // Horizontal line
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 6;
+
+  if (data.deviationStatus === "nil") {
+    // NIL DEVIATION box
+    doc.setFont("times", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text("NIL / NO DEVIATION", pageWidth / 2, y + 10, { align: "center" });
+    doc.setLineWidth(0.8);
+    doc.rect(margin + 20, y, contentWidth - 40, 20);
+    y += 28;
+    doc.setFont("times", "normal");
+    doc.setFontSize(10.5);
+    doc.text("We hereby confirm that our offer is fully compliant with all the terms, conditions, technical", margin, y);
+    y += 5;
+    doc.text("specifications and requirements mentioned in the tender document. There are no deviations", margin, y);
+    y += 5;
+    doc.text("whatsoever from the tender specifications.", margin, y);
+  } else {
+    // DEVIATION TABLE
+    doc.setFont("times", "bold");
+    doc.setFontSize(10.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text("DEVIATIONS FROM TENDER SPECIFICATIONS:", margin, y);
+    y += 6;
+
+    // Table header
+    const colWidths = [10, 55, 60, 60];
+    doc.setFillColor(30, 58, 95);
+    doc.rect(margin, y, contentWidth, 7, "F");
+    doc.setFont("times", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(255, 255, 255);
+    let xp = margin + 2;
+    ["Sr.", "Clause / Specification", "Tender Requirement", "Our Offer / Deviation"].forEach((h, i) => {
+      doc.text(h, xp, y + 5);
+      xp += colWidths[i];
+    });
+    y += 7;
+
+    // Deviation text rows
+    const devLines = data.deviationText
+      ? data.deviationText.split("\n").filter((l) => l.trim())
+      : ["[Enter deviation details]"];
+
+    devLines.forEach((line, idx) => {
+      doc.setFillColor(idx % 2 === 0 ? 255 : 245, idx % 2 === 0 ? 255 : 245, idx % 2 === 0 ? 255 : 245);
+      doc.rect(margin, y, contentWidth, 10, "F");
+      doc.setFont("times", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(0, 0, 0);
+      doc.text(String(idx + 1), margin + 2, y + 7);
+      const wrapped = doc.splitTextToSize(line, colWidths[3] - 4);
+      doc.text(wrapped[0] || "", margin + colWidths[0] + colWidths[1] + colWidths[2] + 2, y + 7);
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(margin, y, contentWidth, 10, "S");
+      y += 10;
+    });
+    y += 5;
+  }
+
+  y += 10;
+  doc.setFont("times", "bold");
+  doc.setFontSize(10.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text("NAME: AKHIL BAHALE", margin, y); y += 5;
+  doc.text("DESIGNATION: Proprietor", margin, y); y += 5;
+  doc.text(`Tender No: ${data.tenderNumber || "-"}`, margin, y);
+  doc.text(`Date: ${formatDate(data.date)}`, pageWidth - margin, y, { align: "right" });
+}
+
+// ─── QUESTIONNAIRE FOR SUPPLY ─────────────────────────────────────────────────
+export async function addQuestionnaireToDoc(
+  doc: jsPDF,
+  data: TenderFormData,
+  logoDataUrl: string
+): Promise<void> {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentWidth = pageWidth - 2 * margin;
+
+  addLetterheadFooter(doc, pageWidth, pageHeight);
+  let y = addLetterheadHeader(doc, logoDataUrl, pageWidth);
+  y += 4;
+
+  // MSPGCL header
+  doc.setFont("times", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.text("MAHARASHTRA STATE POWER GENERATION COMPANY LIMITED", pageWidth / 2, y, { align: "center" });
+  y += 6;
+  doc.setFont("times", "normal");
+  doc.setFontSize(10);
+  const sub = `Sub: ${data.tenderDescription || "[Tender Description]"}`;
+  const subLines = doc.splitTextToSize(sub, contentWidth);
+  doc.text(subLines, margin, y);
+  y += subLines.length * 5 + 2;
+  doc.text(`Ref.: E-Tender No. ${data.rfxNumber || "[RFx]"}`, margin, y); y += 5;
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 5;
+
+  // Table
+  const col1 = 10, col2 = 80, col3 = contentWidth - 90;
+  const headerH = 8;
+
+  // Table header
+  doc.setFillColor(30, 58, 95);
+  doc.rect(margin, y, contentWidth, headerH, "F");
+  doc.setFont("times", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text("Sr.", margin + 2, y + 6);
+  doc.text("PARTICULARS", margin + col1 + 2, y + 6);
+  doc.text("Information / Comments to be filled by the Supplier", margin + col1 + col2 + 2, y + 6);
+  y += headerH;
+
+  const rows: [string, string, string][] = [
+    [
+      "1",
+      "Terms of Payment:\n100% payment will be made within a period of 45 days after the receipt of material at site in good condition against RR Nos issued by consignee & submission of bills in triplicate to AGM (F & A)",
+      "Acceptable",
+    ],
+    ["2", "Validity\n(To be counted from the date of opening of Techno commercial bid)\n60 days", "Acceptable"],
+    ["3", "Acceptance for Scope of Supply and Special Terms and Conditions", "Acceptable"],
+    ["4", "Delivery Period", data.deliveryPeriod || "As per tender"],
+    ["5", "Manufacturer / Dealer (Pls Specify)", data.dealerType || "Authorized Dealer"],
+    ["6", "Make Offered", data.makeOffered || (data.items[0]?.makeModel || "As per tender")],
+    [
+      "7",
+      "In case of Authorized Dealer, who will submit performance B.G. for the materials equal to 10% value of the order as per Annexure-A of QR.",
+      data.dealerType === "Authorized Dealer" ? "Authorized Dealer" : "Not Applicable",
+    ],
+    [
+      "8",
+      "In case of Authorized Dealer, if the authorized dealer / channel partner fails to execute the order then the manufacturer along with authorized dealer / channel partner would be liable for black listing.",
+      "Acceptable",
+    ],
+    [
+      "9",
+      "The proposed quantity in this tender is approximate & may vary as per actual requirement at the time of placement of PO.",
+      "Acceptable",
+    ],
+  ];
+
+  rows.forEach(([sr, particulars, answer], idx) => {
+    const pLines = doc.splitTextToSize(particulars, col2 - 4);
+    const aLines = doc.splitTextToSize(answer, col3 - 4);
+    const rowH = Math.max(pLines.length, aLines.length) * 5 + 4;
+
+    if (idx % 2 === 0) {
+      doc.setFillColor(245, 245, 245);
+      doc.rect(margin, y, contentWidth, rowH, "F");
+    }
+    doc.setFont("times", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text(sr, margin + 2, y + 6);
+    doc.text(pLines, margin + col1 + 2, y + 5);
+    doc.text(aLines, margin + col1 + col2 + 2, y + 5);
+    doc.setDrawColor(180, 180, 180);
+    doc.rect(margin, y, contentWidth, rowH, "S");
+    // column dividers
+    doc.line(margin + col1, y, margin + col1, y + rowH);
+    doc.line(margin + col1 + col2, y, margin + col1 + col2, y + rowH);
+    y += rowH;
+  });
+
+  y += 8;
+  doc.setFont("times", "italic");
+  doc.setFontSize(9);
+  doc.text("I / We hereby undertake to certify that the information and supporting documents submitted along with tender are true and authentic. Any information / document if found false, I/We are liable for action deemed fit by MSPGCL", margin, y, { maxWidth: contentWidth });
+  y += 10;
+
+  doc.setFont("times", "bold");
+  doc.setFontSize(10.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text("SEAL, SIGN & FULL NAME OF BIDDER:", margin, y); y += 5;
+  doc.setFont("times", "normal");
+  doc.text(COMPANY.proprietor, margin, y);
+  doc.text(`Vendor Code: ${COMPANY.vendorCode}`, pageWidth - margin, y, { align: "right" });
+}
