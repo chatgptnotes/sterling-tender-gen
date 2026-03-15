@@ -237,7 +237,7 @@ export default function Home() {
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-3 pt-2">
           <button
-            onClick={() => generateTenderPDF(form)}
+            onClick={() => generateTenderPDF(form).catch(console.error)}
             className="flex items-center gap-2 px-6 py-3 rounded-lg text-white font-bold text-sm shadow-md hover:opacity-90 transition-opacity"
             style={{ background: "#1E3A5F" }}
           >

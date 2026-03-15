@@ -2,6 +2,7 @@
 
 import jsPDF from "jspdf";
 import { COMPANY, POWER_STATIONS, TenderFormData } from "./constants";
+import { addDeclarationToDoc, loadImageAsDataURL, addLetterheadHeader, addLetterheadFooter } from "./declarationPDF";
 
 const ORANGE = [249, 115, 22] as const;
 const NAVY = [30, 58, 95] as const;
@@ -571,26 +572,44 @@ export function generateQuestionnaire(doc: jsPDF, data: TenderFormData, startY: 
 // ============================================================
 // MAIN: Generate Combined Tender PDF (6 documents)
 // ============================================================
-export function generateTenderPDF(data: TenderFormData): void {
+export async function generateTenderPDF(data: TenderFormData): Promise<void> {
+  const logoDataUrl = await loadImageAsDataURL("/sterling-logo.png");
+
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const contentBottom = pageHeight - 15;
 
-  const generators = [
+  // Documents that use the old orange/navy style header
+  const oldStyleDocs = [
     { fn: generateSelfDeclaration, name: "SELF DECLARATION" },
-    { fn: generateDeclarationUndertaking, name: "DECLARATION/UNDERTAKING" },
     { fn: generateAnnexureC, name: "ANNEXURE-C" },
     { fn: generateItemDetails, name: "ITEM DETAILS" },
     { fn: generateDeviationSheet, name: "DEVIATION SHEET" },
     { fn: generateQuestionnaire, name: "QUESTIONNAIRE" },
   ];
 
-  generators.forEach(({ fn }, index) => {
-    if (index > 0) doc.addPage();
-    const headerBottom = addHeader(doc, pageWidth);
+  // Page 1: Self Declaration (old style)
+  const headerBottom = addHeader(doc, pageWidth);
+  addFooter(doc, pageWidth, pageHeight);
+  generateSelfDeclaration(doc, data, headerBottom + 4, pageWidth, pageHeight);
+
+  // Page 2: Declaration/Undertaking — EXACT LETTERHEAD FORMAT
+  doc.addPage();
+  await addDeclarationToDoc(doc, data, logoDataUrl);
+
+  // Pages 3-6: remaining docs (old style, to be updated one by one)
+  const remaining = [
+    generateAnnexureC,
+    generateItemDetails,
+    generateDeviationSheet,
+    generateQuestionnaire,
+  ];
+
+  remaining.forEach((fn) => {
+    doc.addPage();
+    const hb = addHeader(doc, pageWidth);
     addFooter(doc, pageWidth, pageHeight);
-    fn(doc, data, headerBottom + 4, pageWidth, pageHeight);
+    fn(doc, data, hb + 4, pageWidth, pageHeight);
   });
 
   const tenderRef = data.tenderNumber || data.rfxNumber || "tender";
