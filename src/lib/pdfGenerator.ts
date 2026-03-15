@@ -610,13 +610,13 @@ export async function generateTenderPDF(data: TenderFormData): Promise<void> {
     generateItemDetails(doc, data, hb + 4, pageWidth, pageHeight);
   }
 
-  // Page 5: Deviation Sheet — exact format with NIL/deviation toggle
+  // Page 5: Deviation Sheet — MSPGCL form, no letterhead, with stamp
   doc.addPage();
-  await addDeviationSheetToDoc(doc, data, logoDataUrl);
+  await addDeviationSheetToDoc(doc, data, stampDataUrl);
 
-  // Page 6: Questionnaire — exact format
+  // Page 6: Questionnaire — MSPGCL form, no letterhead, with stamp
   doc.addPage();
-  await addQuestionnaireToDoc(doc, data, logoDataUrl);
+  await addQuestionnaireToDoc(doc, data, stampDataUrl);
 
   const tenderRef = data.tenderNumber || data.rfxNumber || "tender";
   doc.save(`Sterling_Tender_${tenderRef}_${data.date || "doc"}.pdf`);

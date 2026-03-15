@@ -8,6 +8,7 @@ import {
   formatDate,
   getStation,
 } from "./declarationPDF";
+// Note: addLetterheadHeader and addLetterheadFooter used only in Annexure C (Sterling letterhead)
 
 // ─── ANNEXURE C ──────────────────────────────────────────────────────────────
 export async function addAnnexureCToDoc(
@@ -159,74 +160,73 @@ export async function addAnnexureCToDoc(
 export async function addDeviationSheetToDoc(
   doc: jsPDF,
   data: TenderFormData,
-  logoDataUrl: string
+  stampDataUrl?: string
 ): Promise<void> {
   const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
   const contentWidth = pageWidth - 2 * margin;
-  const station = getStation(data);
 
-  addLetterheadFooter(doc, pageWidth, pageHeight);
-  let y = addLetterheadHeader(doc, logoDataUrl, pageWidth);
-  y += 4;
+  // Plain page — MSPGCL format (no Sterling letterhead)
+  let y = 18;
 
-  // MSPGCL header line
+  // MSPGCL header — bold centered
   doc.setFont("times", "bold");
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
   doc.text("MAHARASHTRA STATE POWER GENERATION COMPANY LIMITED", pageWidth / 2, y, { align: "center" });
+  y += 8;
+  doc.setLineWidth(0.8);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 2;
+  doc.setLineWidth(0.3);
+  doc.line(margin, y, pageWidth - margin, y);
   y += 7;
 
   // Title
-  doc.setFontSize(12);
+  doc.setFontSize(13);
   doc.text("DEVIATIONS (IF ANY)", pageWidth / 2, y, { align: "center" });
   const dw = doc.getTextWidth("DEVIATIONS (IF ANY)");
   doc.setLineWidth(0.4);
-  doc.line(pageWidth / 2 - dw / 2, y + 0.8, pageWidth / 2 + dw / 2, y + 0.8);
+  doc.line(pageWidth / 2 - dw / 2, y + 1, pageWidth / 2 + dw / 2, y + 1);
   y += 8;
 
   // Tender info
   doc.setFont("times", "normal");
   doc.setFontSize(10.5);
-  doc.text(`Tender for: ${data.rfxNumber || "[RFx Number]"}`, margin, y); y += 5;
   const descLines = doc.splitTextToSize(data.tenderDescription || "[Tender Description]", contentWidth);
   doc.text(descLines, margin, y);
   y += descLines.length * 5 + 3;
+  doc.text(`Tender for: ${data.rfxNumber || "[RFx Number]"}`, margin, y);
+  y += 5;
   doc.text(`Tender No: ${data.tenderNumber || "[Tender Number]"}`, margin, y);
   doc.text(`Date: ${formatDate(data.date)}`, pageWidth - margin, y, { align: "right" });
   y += 8;
 
-  // Horizontal line
   doc.setLineWidth(0.5);
   doc.line(margin, y, pageWidth - margin, y);
-  y += 6;
+  y += 8;
 
   if (data.deviationStatus === "nil") {
     // NIL DEVIATION box
     doc.setFont("times", "bold");
     doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text("NIL / NO DEVIATION", pageWidth / 2, y + 10, { align: "center" });
+    doc.text("NIL / NO DEVIATION", pageWidth / 2, y + 12, { align: "center" });
     doc.setLineWidth(0.8);
-    doc.rect(margin + 20, y, contentWidth - 40, 20);
-    y += 28;
+    doc.rect(margin + 20, y, contentWidth - 40, 22);
+    y += 30;
     doc.setFont("times", "normal");
     doc.setFontSize(10.5);
-    doc.text("We hereby confirm that our offer is fully compliant with all the terms, conditions, technical", margin, y);
-    y += 5;
-    doc.text("specifications and requirements mentioned in the tender document. There are no deviations", margin, y);
-    y += 5;
-    doc.text("whatsoever from the tender specifications.", margin, y);
+    const nilText = "We hereby confirm that our offer is fully compliant with all the terms, conditions, technical specifications and requirements mentioned in the tender document. There are no deviations whatsoever from the tender specifications.";
+    const nilLines = doc.splitTextToSize(nilText, contentWidth);
+    doc.text(nilLines, margin, y);
+    y += nilLines.length * 5 + 5;
   } else {
     // DEVIATION TABLE
     doc.setFont("times", "bold");
     doc.setFontSize(10.5);
-    doc.setTextColor(0, 0, 0);
     doc.text("DEVIATIONS FROM TENDER SPECIFICATIONS:", margin, y);
     y += 6;
 
-    // Table header
     const colWidths = [10, 55, 60, 60];
     doc.setFillColor(30, 58, 95);
     doc.rect(margin, y, contentWidth, 7, "F");
@@ -239,18 +239,17 @@ export async function addDeviationSheetToDoc(
       xp += colWidths[i];
     });
     y += 7;
+    doc.setTextColor(0, 0, 0);
 
-    // Deviation text rows
     const devLines = data.deviationText
       ? data.deviationText.split("\n").filter((l) => l.trim())
       : ["[Enter deviation details]"];
 
     devLines.forEach((line, idx) => {
-      doc.setFillColor(idx % 2 === 0 ? 255 : 245, idx % 2 === 0 ? 255 : 245, idx % 2 === 0 ? 255 : 245);
+      doc.setFillColor(idx % 2 === 0 ? 255 : 248, idx % 2 === 0 ? 255 : 248, idx % 2 === 0 ? 255 : 248);
       doc.rect(margin, y, contentWidth, 10, "F");
       doc.setFont("times", "normal");
       doc.setFontSize(8.5);
-      doc.setTextColor(0, 0, 0);
       doc.text(String(idx + 1), margin + 2, y + 7);
       const wrapped = doc.splitTextToSize(line, colWidths[3] - 4);
       doc.text(wrapped[0] || "", margin + colWidths[0] + colWidths[1] + colWidths[2] + 2, y + 7);
@@ -261,12 +260,20 @@ export async function addDeviationSheetToDoc(
     y += 5;
   }
 
-  y += 10;
+  y += 8;
+  // Stamp above signature block
+  if (stampDataUrl) {
+    doc.addImage(stampDataUrl, "PNG", pageWidth - margin - 32, y - 5, 28, 28);
+  }
+
   doc.setFont("times", "bold");
   doc.setFontSize(10.5);
   doc.setTextColor(0, 0, 0);
-  doc.text("NAME: AKHIL BAHALE", margin, y); y += 5;
-  doc.text("DESIGNATION: Proprietor", margin, y); y += 5;
+  doc.text("NAME: AKHIL BAHALE PROPRIETOR", margin, y + 8);
+  y += 13;
+  doc.setFont("times", "normal");
+  doc.text("DESIGNATION: Proprietor", margin, y);
+  y += 5;
   doc.text(`Tender No: ${data.tenderNumber || "-"}`, margin, y);
   doc.text(`Date: ${formatDate(data.date)}`, pageWidth - margin, y, { align: "right" });
 }
@@ -275,23 +282,28 @@ export async function addDeviationSheetToDoc(
 export async function addQuestionnaireToDoc(
   doc: jsPDF,
   data: TenderFormData,
-  logoDataUrl: string
+  stampDataUrl?: string
 ): Promise<void> {
   const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
   const contentWidth = pageWidth - 2 * margin;
 
-  addLetterheadFooter(doc, pageWidth, pageHeight);
-  let y = addLetterheadHeader(doc, logoDataUrl, pageWidth);
-  y += 4;
+  // Plain page — MSPGCL format (no Sterling letterhead)
+  let y = 18;
 
   // MSPGCL header
   doc.setFont("times", "bold");
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
   doc.text("MAHARASHTRA STATE POWER GENERATION COMPANY LIMITED", pageWidth / 2, y, { align: "center" });
-  y += 6;
+  y += 7;
+  doc.setLineWidth(0.8);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 2;
+  doc.setLineWidth(0.3);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 5;
+
   doc.setFont("times", "normal");
   doc.setFontSize(10);
   const sub = `Sub: ${data.tenderDescription || "[Tender Description]"}`;
@@ -373,12 +385,18 @@ export async function addQuestionnaireToDoc(
   doc.setFont("times", "italic");
   doc.setFontSize(9);
   doc.text("I / We hereby undertake to certify that the information and supporting documents submitted along with tender are true and authentic. Any information / document if found false, I/We are liable for action deemed fit by MSPGCL", margin, y, { maxWidth: contentWidth });
-  y += 10;
+  y += 5;
+
+  // Stamp placed above/beside signature block
+  if (stampDataUrl) {
+    doc.addImage(stampDataUrl, "PNG", pageWidth - margin - 32, y - 5, 28, 28);
+  }
 
   doc.setFont("times", "bold");
   doc.setFontSize(10.5);
   doc.setTextColor(0, 0, 0);
-  doc.text("SEAL, SIGN & FULL NAME OF BIDDER:", margin, y); y += 5;
+  doc.text("SEAL, SIGN & FULL NAME OF BIDDER:", margin, y + 8);
+  y += 14;
   doc.setFont("times", "normal");
   doc.text(COMPANY.proprietor, margin, y);
   doc.text(`Vendor Code: ${COMPANY.vendorCode}`, pageWidth - margin, y, { align: "right" });
