@@ -5,6 +5,7 @@ import { Plus, Trash2, FileText, Receipt, Truck, ChevronDown, ChevronUp } from "
 import { TenderFormData, TenderItem, defaultFormData, defaultItem, POWER_STATIONS } from "@/lib/constants";
 import { generateTenderPDF, generateTaxInvoice, generateDeliveryMemo } from "@/lib/pdfGenerator";
 import { generateDeclarationPDF } from "@/lib/declarationPDF";
+// generateDeclarationPDF is used inside generateTenderPDF combined flow
 
 export default function Home() {
   const [form, setForm] = useState<TenderFormData>({ ...defaultFormData, items: [{ ...defaultItem }] });
@@ -58,7 +59,8 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-4">
             <Field label="RFx Number" value={form.rfxNumber} onChange={(v) => setField("rfxNumber", v)} placeholder="e.g. 6000012345" />
             <Field label="Tender Number" value={form.tenderNumber} onChange={(v) => setField("tenderNumber", v)} placeholder="e.g. BTPS/O&M/2025-26/..." />
-            <Field label="Date" value={form.date} onChange={(v) => setField("date", v)} type="date" />
+            <Field label="Tender Issue Date (by MSPGCL)" value={form.tenderIssueDate} onChange={(v) => setField("tenderIssueDate", v)} type="date" />
+            <Field label="Submission Date" value={form.date} onChange={(v) => setField("date", v)} type="date" />
             <Field label="Reference" value={form.reference} onChange={(v) => setField("reference", v)} placeholder="Reference / correspondence" />
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-600 mb-1">Tender Description</label>
@@ -71,6 +73,44 @@ export default function Home() {
                 placeholder="Description of items / works in the tender"
               />
             </div>
+            {/* Supply type toggle */}
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-gray-600 mb-2">Supply Type (for Declaration)</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="supplyType"
+                    value="indigenous"
+                    checked={form.supplyType === "indigenous"}
+                    onChange={() => setField("supplyType", "indigenous")}
+                    className="accent-orange-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Indigenous Supply</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="supplyType"
+                    value="imported"
+                    checked={form.supplyType === "imported"}
+                    onChange={() => setField("supplyType", "imported")}
+                    className="accent-orange-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Imported Supply</span>
+                </label>
+              </div>
+            </div>
+            {form.supplyType === "imported" && (
+              <div className="col-span-2">
+                <Field
+                  label="Import Supplier / Country of Origin"
+                  value={form.importSupplier}
+                  onChange={(v) => setField("importSupplier", v)}
+                  placeholder="e.g. Germany, or Supplier Name, Country"
+                />
+              </div>
+            )}
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-600 mb-1">Power Station</label>
               <select
@@ -203,14 +243,6 @@ export default function Home() {
           >
             <FileText size={16} />
             Generate Tender Documents (Combined PDF)
-          </button>
-          <button
-            onClick={() => generateDeclarationPDF(form)}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg text-white font-bold text-sm shadow-md hover:opacity-90 transition-opacity"
-            style={{ background: "#2563eb" }}
-          >
-            <FileText size={16} />
-            Declaration / Undertaking (Exact Format)
           </button>
           <button
             onClick={() => generateTaxInvoice(form)}

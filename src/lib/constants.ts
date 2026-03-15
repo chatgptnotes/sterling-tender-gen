@@ -63,11 +63,14 @@ export interface TenderFormData {
   rfxNumber: string;
   tenderNumber: string;
   tenderDescription: string;
+  tenderIssueDate: string;
   date: string;
   reference: string;
   powerStationCode: string;
   customStationName: string;
   customStationAddress: string;
+  supplyType: "indigenous" | "imported";
+  importSupplier: string;
   items: TenderItem[];
   invoiceNumber: string;
   dmNumber: string;
@@ -93,11 +96,14 @@ export const defaultFormData: TenderFormData = {
   rfxNumber: "",
   tenderNumber: "",
   tenderDescription: "",
+  tenderIssueDate: "",
   date: new Date().toISOString().split("T")[0],
   reference: "",
   powerStationCode: "BTPS",
   customStationName: "",
   customStationAddress: "",
+  supplyType: "indigenous",
+  importSupplier: "",
   items: [{ ...defaultItem }],
   invoiceNumber: "",
   dmNumber: "",

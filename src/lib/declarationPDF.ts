@@ -155,36 +155,35 @@ export async function generateDeclarationPDF(data: TenderFormData): Promise<void
   doc.setFont("times", "normal");
   const descText = data.tenderDescription || "[Description of tender items]";
   const tenderNo = data.tenderNumber || "[Tender Number]";
-  const tenderDate = data.date ? formatDate(data.date) : "[Date]";
+  const tenderDate = data.tenderIssueDate ? formatDate(data.tenderIssueDate) : (data.date ? formatDate(data.date) : "[Date]");
 
   const opening = `In accordance with your Tender for ${descText}, under your Tender No. ${tenderNo} dated ${tenderDate} M/s. ${COMPANY.name} (Hereinafter called the Bidder) hereby submit the undertaking as under:`;
   const openLines = doc.splitTextToSize(opening, contentWidth);
   doc.text(openLines, margin, y);
   y += openLines.length * 5.5 + 5;
 
-  // ── Para 1: MoP compliance (imported) ──
-  const para1 = `The Bidder commits to undertake all measures necessary to follow Orders issued by Ministry of Power, Govt. of India (Num. 25 – 11 / 6 /2018 - PG Dt: 02-07-2020 & Num: No. 9 / 16 / 2016-Trans - Part (2) Dt: 18-11-2020 and / or subsequent orders / amendments if any) regarding testing of equipment, components, and parts imported for use in the Power Supply System and Network for any kind of embedded Malware / Trojans / Cyber Threat and for adherence to Indian Standards.`;
-  const para1Lines = doc.splitTextToSize(para1, contentWidth);
-  doc.text(para1Lines, margin, y);
-  y += para1Lines.length * 5.5 + 5;
-
-  // Sub-detail para
-  const para1b = `Equipment / components / parts to be supplied will be imported from and as such the same will be supplied by following prevailing directives issued by the Ministry of Power and any other statutory authorities for such imports. The necessary Test Certificates, regarding any kind of embedded Malware / Trojans / Cyber Threat and for adherence to Indian Standards, issued by the approved Laboratories will be provided while supplying the tendered material. Also copies of Permissions accorded by the statutory authorities for such import will also be provided any time, if asked for the same by the Purchasing Authorities.`;
-  const para1bLines = doc.splitTextToSize(para1b, contentWidth);
-  doc.text(para1bLines, margin, y);
-  y += para1bLines.length * 5.5 + 4;
-
-  // OR divider
-  doc.setFont("times", "bold");
-  doc.text("OR", pageWidth / 2, y, { align: "center" });
-  y += 6;
-
-  // No-import alternative
+  // ── Supply type: Imported or Indigenous ──
   doc.setFont("times", "normal");
-  const para2 = `No any equipment / components / parts to be supplied will be imported & the tendered material will be supplied indigenously and as such directives issued by the Ministry of Power or any other statutory authorities regarding imported items will not be applicable for such supplies.`;
-  const para2Lines = doc.splitTextToSize(para2, contentWidth);
-  doc.text(para2Lines, margin, y);
-  y += para2Lines.length * 5.5 + 5;
+
+  if (data.supplyType === "imported") {
+    // Para A: Imported items
+    const para1 = `The Bidder commits to undertake all measures necessary to follow Orders issued by Ministry of Power, Govt. of India (Num. 25 – 11 / 6 /2018 - PG Dt: 02-07-2020 & Num: No. 9 / 16 / 2016-Trans - Part (2) Dt: 18-11-2020 and / or subsequent orders / amendments if any) regarding testing of equipment, components, and parts imported for use in the Power Supply System and Network for any kind of embedded Malware / Trojans / Cyber Threat and for adherence to Indian Standards.`;
+    const para1Lines = doc.splitTextToSize(para1, contentWidth);
+    doc.text(para1Lines, margin, y);
+    y += para1Lines.length * 5.5 + 5;
+
+    const supplier = data.importSupplier || "[Supplier / Country of Origin]";
+    const para1b = `Equipment / components / parts to be supplied will be imported from ${supplier} and as such the same will be supplied by following prevailing directives issued by the Ministry of Power and any other statutory authorities for such imports. The necessary Test Certificates, regarding any kind of embedded Malware / Trojans / Cyber Threat and for adherence to Indian Standards, issued by the approved Laboratories will be provided while supplying the tendered material. Also copies of Permissions accorded by the statutory authorities for such import will also be provided any time, if asked for the same by the Purchasing Authorities.`;
+    const para1bLines = doc.splitTextToSize(para1b, contentWidth);
+    doc.text(para1bLines, margin, y);
+    y += para1bLines.length * 5.5 + 5;
+  } else {
+    // Para B: Indigenous supply
+    const para2 = `No any equipment / components / parts to be supplied will be imported & the tendered material will be supplied indigenously and as such directives issued by the Ministry of Power or any other statutory authorities regarding imported items will not be applicable for such supplies.`;
+    const para2Lines = doc.splitTextToSize(para2, contentWidth);
+    doc.text(para2Lines, margin, y);
+    y += para2Lines.length * 5.5 + 5;
+  }
 
   // Non-compliance warning
   const para3 = `The bidder has understood that non-compliance of the order (Num. 25 – 11 / 6 /2018 - PG Dt: 02-07-2020 & Num: No. 9 / 16 / 2016-Trans - Part (2) Dt: 18-11-2020 and / or subsequent orders / amendments if any), at any stage of Tendering Process / Order execution, may lead to disqualification from the tendering process / termination of Purchase Order / Contract and this shall lead to forfeiture of EMD / SD / Performance Deposit, as the case may be.`;
