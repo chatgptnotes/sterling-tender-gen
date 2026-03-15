@@ -8,7 +8,7 @@ import {
   formatDate,
   getStation,
 } from "./declarationPDF";
-// Note: addLetterheadHeader and addLetterheadFooter used only in Annexure C (Sterling letterhead)
+// Note: addLetterheadHeader and addLetterheadFooter are used only in Annexure C (Sterling letterhead)
 
 // ─── ANNEXURE C ──────────────────────────────────────────────────────────────
 export async function addAnnexureCToDoc(
@@ -400,4 +400,152 @@ export async function addQuestionnaireToDoc(
   doc.setFont("times", "normal");
   doc.text(COMPANY.proprietor, margin, y);
   doc.text(`Vendor Code: ${COMPANY.vendorCode}`, pageWidth - margin, y, { align: "right" });
+}
+
+// ─── ITEM DETAILS FORMAT ─────────────────────────────────────────────────────
+export async function addItemDetailsToDoc(
+  doc: jsPDF,
+  data: TenderFormData,
+  stampDataUrl?: string
+): Promise<void> {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 15;
+  const contentWidth = pageWidth - 2 * margin;
+
+  // Plain MSPGCL form — no Sterling letterhead
+  let y = 18;
+
+  // Header: MSPGCL bold centered
+  doc.setFont("times", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(0, 0, 0);
+  doc.text("MAHARASHTRA STATE POWER GENERATION COMPANY LIMITED", pageWidth / 2, y, { align: "center" });
+  y += 7;
+  doc.setLineWidth(0.8);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 2;
+  doc.setLineWidth(0.3);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 7;
+
+  // Title
+  doc.setFontSize(13);
+  doc.text("FORMAT FOR ITEM DETAILS", pageWidth / 2, y, { align: "center" });
+  const tw = doc.getTextWidth("FORMAT FOR ITEM DETAILS");
+  doc.setLineWidth(0.4);
+  doc.line(pageWidth / 2 - tw / 2, y + 1, pageWidth / 2 + tw / 2, y + 1);
+  y += 8;
+
+  // Tender ref line
+  doc.setFont("times", "normal");
+  doc.setFontSize(9.5);
+  const descText = `Tender: Description of Tender: ${data.tenderDescription || "[Tender Description]"}`;
+  const descLines = doc.splitTextToSize(descText, contentWidth);
+  doc.text(descLines, margin, y);
+  y += descLines.length * 5 + 2;
+  doc.text(`Ref.: E-Tender. Rfx No ${data.rfxNumber || "[RFx]"}`, margin, y);
+  y += 8;
+
+  // Table columns matching exact MSPGCL format
+  const cols = [
+    { header: "SR. NO.", width: 12 },
+    { header: "ITEM CODE\n(SETS Code)", width: 38 },
+    { header: "HSN /SAC CODE\n(As per GST Act\nNotified by GOI)", width: 30 },
+    { header: "MAKE & MODEL\nOFFERED BY\nBIDDER *", width: 38 },
+    { header: "TECHNICAL\nSPECIFICATIONS\nOFFERED BY\nBIDDERS*", width: 55 },
+    { header: "REMARKS\n(IF ANY)", width: contentWidth - 173 },
+  ];
+
+  // Header row — 3 lines tall
+  const headerH = 16;
+  doc.setFillColor(30, 58, 95);
+  doc.rect(margin, y, contentWidth, headerH, "F");
+  doc.setFont("times", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(255, 255, 255);
+  let xp = margin;
+  cols.forEach((col) => {
+    const lines = col.header.split("\n");
+    const lineH = 4;
+    const totalH = lines.length * lineH;
+    const startY = y + (headerH - totalH) / 2 + lineH - 1;
+    lines.forEach((line, li) => {
+      doc.text(line, xp + col.width / 2, startY + li * lineH, { align: "center" });
+    });
+    xp += col.width;
+  });
+  // Column dividers in header
+  xp = margin;
+  cols.forEach((col, i) => {
+    xp += col.width;
+    if (i < cols.length - 1) {
+      doc.setDrawColor(100, 140, 180);
+      doc.setLineWidth(0.2);
+      doc.line(xp, y, xp, y + headerH);
+    }
+  });
+  y += headerH;
+
+  // Data rows
+  data.items.forEach((item, idx) => {
+    const rowLines = Math.max(
+      doc.splitTextToSize(item.sapCode || "-", cols[1].width - 3).length,
+      doc.splitTextToSize(item.techSpecs || "AS PER TENDER", cols[4].width - 3).length,
+      1
+    );
+    const rowH = Math.max(rowLines * 5 + 4, 10);
+
+    if (idx % 2 === 0) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(margin, y, contentWidth, rowH, "F");
+    }
+
+    doc.setFont("times", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(0, 0, 0);
+
+    const cellData = [
+      `${idx + 1})`,
+      item.sapCode || "-",
+      item.hsnCode || "-",
+      item.makeModel || (data.makeOffered || "-"),
+      item.techSpecs || "AS PER TENDER",
+      item.remarks || "NO",
+    ];
+
+    xp = margin;
+    cols.forEach((col, ci) => {
+      const wrapped = doc.splitTextToSize(cellData[ci], col.width - 3);
+      doc.text(wrapped, xp + 2, y + 6);
+      xp += col.width;
+    });
+
+    // Row border + column dividers
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.2);
+    doc.rect(margin, y, contentWidth, rowH, "S");
+    xp = margin;
+    cols.forEach((col, i) => {
+      xp += col.width;
+      if (i < cols.length - 1) {
+        doc.line(xp, y, xp, y + rowH);
+      }
+    });
+    y += rowH;
+  });
+
+  y += 10;
+
+  // Stamp
+  if (stampDataUrl) {
+    doc.addImage(stampDataUrl, "PNG", pageWidth - margin - 32, y - 5, 28, 28);
+  }
+
+  // Signature block
+  doc.setFont("times", "bold");
+  doc.setFontSize(10.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text("        NAME: AKHIL BAHALE", margin, y + 10);
+  y += 15;
+  doc.text(" DESIGNATION: PROPRIETOR", margin, y);
 }

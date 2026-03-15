@@ -3,7 +3,7 @@
 import jsPDF from "jspdf";
 import { COMPANY, POWER_STATIONS, TenderFormData } from "./constants";
 import { addDeclarationToDoc, loadSterlingImages, addLetterheadHeader, addLetterheadFooter } from "./declarationPDF";
-import { addAnnexureCToDoc, addDeviationSheetToDoc, addQuestionnaireToDoc } from "./documentPDFs";
+import { addAnnexureCToDoc, addDeviationSheetToDoc, addQuestionnaireToDoc, addItemDetailsToDoc } from "./documentPDFs";
 
 const ORANGE = [249, 115, 22] as const;
 const NAVY = [30, 58, 95] as const;
@@ -602,13 +602,9 @@ export async function generateTenderPDF(data: TenderFormData): Promise<void> {
   doc.addPage();
   await addAnnexureCToDoc(doc, data, logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl);
 
-  // Page 4: Item Details
+  // Page 4: Item Details — MSPGCL plain format with stamp
   doc.addPage();
-  {
-    const hb = addHeader(doc, pageWidth);
-    addFooter(doc, pageWidth, pageHeight);
-    generateItemDetails(doc, data, hb + 4, pageWidth, pageHeight);
-  }
+  await addItemDetailsToDoc(doc, data, stampDataUrl);
 
   // Page 5: Deviation Sheet — MSPGCL form, no letterhead, with stamp
   doc.addPage();
