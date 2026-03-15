@@ -2,7 +2,7 @@
 
 import jsPDF from "jspdf";
 import { COMPANY, POWER_STATIONS, TenderFormData } from "./constants";
-import { addDeclarationToDoc, loadImageAsDataURL, addLetterheadHeader, addLetterheadFooter } from "./declarationPDF";
+import { addDeclarationToDoc, loadSterlingImages, addLetterheadHeader, addLetterheadFooter } from "./declarationPDF";
 
 const ORANGE = [249, 115, 22] as const;
 const NAVY = [30, 58, 95] as const;
@@ -573,7 +573,7 @@ export function generateQuestionnaire(doc: jsPDF, data: TenderFormData, startY: 
 // MAIN: Generate Combined Tender PDF (6 documents)
 // ============================================================
 export async function generateTenderPDF(data: TenderFormData): Promise<void> {
-  const logoDataUrl = await loadImageAsDataURL("/sterling-logo.png");
+  const { logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl } = await loadSterlingImages();
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -595,7 +595,7 @@ export async function generateTenderPDF(data: TenderFormData): Promise<void> {
 
   // Page 2: Declaration/Undertaking — EXACT LETTERHEAD FORMAT
   doc.addPage();
-  await addDeclarationToDoc(doc, data, logoDataUrl);
+  await addDeclarationToDoc(doc, data, logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl);
 
   // Pages 3-6: remaining docs (old style, to be updated one by one)
   const remaining = [

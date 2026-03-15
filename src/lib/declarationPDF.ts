@@ -92,7 +92,10 @@ export function addLetterheadFooter(doc: jsPDF, pageWidth: number, pageHeight: n
 export async function addDeclarationToDoc(
   doc: jsPDF,
   data: TenderFormData,
-  logoDataUrl: string
+  logoDataUrl: string,
+  stampDataUrl?: string,
+  sig1DataUrl?: string,
+  sig2DataUrl?: string
 ): Promise<void> {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -175,30 +178,58 @@ export async function addDeclarationToDoc(
   doc.text("This undertaking shall form a part of the contract.", margin, y);
   y += 10;
 
+  // Stamp above signature block (right side, centered over signature)
+  if (stampDataUrl) {
+    const stampSize = 28; // 28mm x 28mm
+    doc.addImage(stampDataUrl, "PNG", pageWidth - margin - stampSize - 10, y - 4, stampSize, stampSize);
+  }
+
   // Signature block
   doc.setFont("times", "normal");
-  doc.text(`Date- ${formatDate(data.date)}`, margin, y);
+  doc.text(`Date- ${formatDate(data.date)}`, margin, y + 20);
   doc.setFont("times", "bold");
-  doc.text("AKHIL BAHALE", pageWidth - margin, y, { align: "right" });
-  y += 5;
+  doc.text("AKHIL BAHALE", pageWidth - margin, y + 20, { align: "right" });
+  y += 25;
   doc.setFont("times", "normal");
   doc.text("Place- Nagpur", margin, y);
   doc.text("PROPRIETOR", pageWidth - margin, y, { align: "right" });
-  y += 10;
+  y += 12;
 
   // Witnesses
   doc.setFont("times", "bold");
   doc.text("In presence of:", margin, y); y += 5;
   doc.setFont("times", "normal");
-  doc.text("WITNESS (with full name, designation, address & official seal, if any)", margin, y); y += 6;
-  doc.text(`1. ${COMPANY.witnesses[0]}`, margin, y); y += 6;
-  doc.text(`2. ${COMPANY.witnesses[1]}`, margin, y);
+  doc.text("WITNESS (with full name, designation, address & official seal, if any)", margin, y); y += 8;
+
+  // Witness 1 with signature
+  doc.text(`(1) ${COMPANY.witnesses[0]}`, margin, y);
+  if (sig1DataUrl) {
+    doc.addImage(sig1DataUrl, "PNG", margin + 110, y - 6, 30, 10);
+  }
+  y += 12;
+
+  // Witness 2 with signature
+  doc.text(`(2) ${COMPANY.witnesses[1]}`, margin, y);
+  if (sig2DataUrl) {
+    doc.addImage(sig2DataUrl, "PNG", margin + 110, y - 6, 30, 10);
+  }
+}
+
+// ─── Load all Sterling images ─────────────────────────────────────────────────
+export async function loadSterlingImages() {
+  const [logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl] = await Promise.all([
+    loadImageAsDataURL("/sterling-logo.png"),
+    loadImageAsDataURL("/sterling-stamp.png"),
+    loadImageAsDataURL("/sterling-sig1.png"),
+    loadImageAsDataURL("/sterling-sig2.png"),
+  ]);
+  return { logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl };
 }
 
 // ─── STANDALONE: Generate Declaration as its own PDF ─────────────────────────
 export async function generateDeclarationPDF(data: TenderFormData): Promise<void> {
-  const logoDataUrl = await loadImageAsDataURL("/sterling-logo.png");
+  const { logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl } = await loadSterlingImages();
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  await addDeclarationToDoc(doc, data, logoDataUrl);
+  await addDeclarationToDoc(doc, data, logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl);
   doc.save(`Sterling_Declaration_${data.tenderNumber || data.rfxNumber || "doc"}.pdf`);
 }
