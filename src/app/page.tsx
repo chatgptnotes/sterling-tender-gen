@@ -14,7 +14,7 @@ export default function Home() {
   const [openSections, setOpenSections] = useState({ tender: true, items: true, invoice: false, delivery: false });
   const [parseStatus, setParseStatus] = useState<ParseStatus>("idle");
   const [parseError, setParseError] = useState("");
-  const [parsedFileName, setParsedFileName] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleSection = (key: keyof typeof openSections) =>
@@ -38,14 +38,24 @@ export default function Home() {
 
   const totalAmount = form.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
-  const handleTenderUpload = async (file: File) => {
-    if (!file) return;
-    setParsedFileName(file.name);
+  const addFiles = (newFiles: File[]) => {
+    setUploadedFiles((prev) => {
+      const existingNames = new Set(prev.map((f) => f.name));
+      const toAdd = newFiles.filter((f) => !existingNames.has(f.name));
+      return [...prev, ...toAdd];
+    });
+  };
+
+  const removeFile = (idx: number) =>
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== idx));
+
+  const handleTenderUpload = async (files: File[]) => {
+    if (!files.length) return;
     setParseStatus("parsing");
     setParseError("");
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      files.forEach((f) => fd.append("files", f));
       const res = await fetch("/api/parse-tender", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -119,69 +129,93 @@ export default function Home() {
               <p className="text-blue-200 text-xs mt-0.5">Upload a tender PDF or DOCX — Gemini AI reads it and fills all fields automatically</p>
             </div>
           </div>
-          <div className="p-5">
+          <div className="p-5 space-y-4">
+            {/* Drop zone */}
             <div
-              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
-                ${parseStatus === "parsing" ? "border-orange-300 bg-orange-50" :
-                  parseStatus === "done" ? "border-green-400 bg-green-50" :
+              className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all
+                ${parseStatus === "parsing" ? "border-orange-300 bg-orange-50 pointer-events-none" :
+                  parseStatus === "done" ? "border-green-300 bg-green-50" :
                   parseStatus === "error" ? "border-red-300 bg-red-50" :
                   "border-gray-300 hover:border-orange-400 hover:bg-orange-50 bg-gray-50"}`}
               onClick={() => parseStatus !== "parsing" && fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
-                const f = e.dataTransfer.files?.[0];
-                if (f) handleTenderUpload(f);
+                const dropped = Array.from(e.dataTransfer.files);
+                if (dropped.length) { addFiles(dropped); setParseStatus("idle"); }
               }}
             >
               <input
                 ref={fileInputRef}
                 type="file"
                 accept=".pdf,.docx,.doc"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleTenderUpload(f);
+                  const selected = Array.from(e.target.files || []);
+                  if (selected.length) { addFiles(selected); setParseStatus("idle"); }
                   e.target.value = "";
                 }}
               />
-              {parseStatus === "idle" && (
+              {parseStatus === "parsing" ? (
                 <>
-                  <Upload size={32} className="mx-auto text-gray-400 mb-3" />
-                  <p className="text-sm font-medium text-gray-600">Drop your tender file here or click to browse</p>
-                  <p className="text-xs text-gray-400 mt-1">Supports PDF, DOCX — Max 20MB</p>
+                  <Loader2 size={28} className="mx-auto text-orange-500 mb-2 animate-spin" />
+                  <p className="text-sm font-medium text-orange-700">Gemini AI is reading {uploadedFiles.length} file{uploadedFiles.length > 1 ? "s" : ""}...</p>
+                  <p className="text-xs text-orange-400 mt-1">Extracting all tender details</p>
                 </>
-              )}
-              {parseStatus === "parsing" && (
+              ) : parseStatus === "done" ? (
                 <>
-                  <Loader2 size={32} className="mx-auto text-orange-500 mb-3 animate-spin" />
-                  <p className="text-sm font-medium text-orange-700">Gemini AI is reading the tender...</p>
-                  <p className="text-xs text-orange-500 mt-1">{parsedFileName}</p>
+                  <CheckCircle size={28} className="mx-auto text-green-500 mb-2" />
+                  <p className="text-sm font-medium text-green-700">Fields filled — review and edit below</p>
+                  <p className="text-xs text-green-500 mt-1">Click or drop to add more files</p>
                 </>
-              )}
-              {parseStatus === "done" && (
+              ) : parseStatus === "error" ? (
                 <>
-                  <CheckCircle size={32} className="mx-auto text-green-500 mb-3" />
-                  <p className="text-sm font-medium text-green-700">Fields filled successfully</p>
-                  <p className="text-xs text-green-500 mt-1">{parsedFileName} — review and edit below</p>
-                  <button
-                    className="mt-3 text-xs text-gray-500 underline"
-                    onClick={(e) => { e.stopPropagation(); setParseStatus("idle"); }}
-                  >Upload another file</button>
+                  <AlertCircle size={28} className="mx-auto text-red-500 mb-2" />
+                  <p className="text-sm font-medium text-red-700">{parseError}</p>
+                  <p className="text-xs text-red-400 mt-1">Click to try again</p>
                 </>
-              )}
-              {parseStatus === "error" && (
+              ) : (
                 <>
-                  <AlertCircle size={32} className="mx-auto text-red-500 mb-3" />
-                  <p className="text-sm font-medium text-red-700">Parsing failed</p>
-                  <p className="text-xs text-red-500 mt-1">{parseError}</p>
-                  <button
-                    className="mt-3 text-xs text-blue-600 underline"
-                    onClick={(e) => { e.stopPropagation(); setParseStatus("idle"); fileInputRef.current?.click(); }}
-                  >Try again</button>
+                  <Upload size={28} className="mx-auto text-gray-400 mb-2" />
+                  <p className="text-sm font-medium text-gray-600">Drop tender files here or click to browse</p>
+                  <p className="text-xs text-gray-400 mt-1">PDF, DOCX — multiple files supported</p>
                 </>
               )}
             </div>
+
+            {/* File list */}
+            {uploadedFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{uploadedFiles.length} file{uploadedFiles.length > 1 ? "s" : ""} queued</p>
+                {uploadedFiles.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText size={14} className="text-blue-500 shrink-0" />
+                      <span className="text-xs text-gray-700 truncate">{f.name}</span>
+                      <span className="text-xs text-gray-400 shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
+                    </div>
+                    {parseStatus !== "parsing" && (
+                      <button onClick={() => removeFile(i)} className="ml-2 text-gray-400 hover:text-red-500 shrink-0">
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {/* Parse button */}
+                {parseStatus !== "parsing" && (
+                  <button
+                    onClick={() => handleTenderUpload(uploadedFiles)}
+                    style={{ background: "#F97316" }}
+                    className="w-full mt-1 py-2.5 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                  >
+                    <Upload size={15} />
+                    Parse {uploadedFiles.length} file{uploadedFiles.length > 1 ? "s" : ""} with Gemini AI
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

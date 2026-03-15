@@ -8,7 +8,13 @@ const GEMINI_URL =
 const EXTRACTION_PROMPT = `
 You are an expert at reading MSPGCL (Maharashtra State Power Generation Company Limited) tender/RFQ documents.
 
-Extract ALL available information from this tender document and return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
+The user has uploaded one or more tender documents. They may include:
+- The main e-tender/RFQ notice
+- Bill of Quantities (BOQ)
+- Technical specifications
+- Annexures
+
+Extract ALL available information across ALL documents provided and return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
 
 {
   "rfxNumber": "RFx or e-tender number (e.g. 3000062403)",
@@ -26,8 +32,8 @@ Extract ALL available information from this tender document and return ONLY a va
   "items": [
     {
       "description": "Full item description",
-      "sapCode": "SAP material code if present, else empty string",
-      "hsnCode": "",
+      "sapCode": "SAP / SETS material code if present, else empty string",
+      "hsnCode": "HSN or SAC code if present",
       "makeModel": "Make/model if mentioned",
       "quantity": 1,
       "unit": "Nos/Set/Lot/etc",
@@ -40,96 +46,84 @@ Extract ALL available information from this tender document and return ONLY a va
 
 Station mapping rules:
 - "Bhusawal" → powerStationCode = "BTPS"
-- "Khaperkheda" → powerStationCode = "KPKD"  
+- "Khaperkheda" → powerStationCode = "KPKD"
 - "Chandrapur" → powerStationCode = "CSTPS"
 - "Koradi" → powerStationCode = "KTPS"
 - Any other station → powerStationCode = "CUSTOM", fill customStationName and customStationAddress
 
-If a field is not found in the document, use empty string or 0 for numbers.
-Extract ALL line items from the items/material table.
+If a field is not found in any document, use empty string or 0 for numbers.
+Extract ALL line items from the items/material/BOQ table across all documents.
+Consolidate information from multiple documents — later documents may have BOQ/item details not in the first.
 Return ONLY the JSON, nothing else.
 `;
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const file = formData.get("file") as File | null;
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    // Support both single "file" and multiple "files"
+    const fileEntries = formData.getAll("files") as File[];
+    const singleFile = formData.get("file") as File | null;
+    const allFiles = fileEntries.length > 0 ? fileEntries : singleFile ? [singleFile] : [];
+
+    if (allFiles.length === 0) {
+      return NextResponse.json({ error: "No files provided" }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
+    // Build Gemini parts — one part per file + final instruction prompt
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let parts: any[] = [];
+    const parts: any[] = [];
 
-    const fileType = file.type;
-    const fileName = file.name.toLowerCase();
+    for (const file of allFiles) {
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const fileName = file.name.toLowerCase();
+      const fileType = file.type;
 
-    if (fileType === "application/pdf" || fileName.endsWith(".pdf")) {
-      // Send PDF directly to Gemini
-      const base64 = buffer.toString("base64");
-      parts = [
-        { inline_data: { mime_type: "application/pdf", data: base64 } },
-        { text: EXTRACTION_PROMPT },
-      ];
-    } else if (
-      fileName.endsWith(".docx") ||
-      fileType ===
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    ) {
-      // Extract text from DOCX using mammoth
-      const mammoth = await import("mammoth");
-      const result = await mammoth.extractRawText({ buffer });
-      const docText = result.value || "";
-      if (!docText.trim()) {
-        return NextResponse.json(
-          { error: "Could not extract text from document" },
-          { status: 400 }
-        );
-      }
-      parts = [
-        {
-          text:
-            "TENDER DOCUMENT TEXT:\n\n" + docText + "\n\n" + EXTRACTION_PROMPT,
-        },
-      ];
-    } else if (fileName.endsWith(".doc")) {
-      // Old .doc format — try mammoth anyway
-      try {
+      if (fileType === "application/pdf" || fileName.endsWith(".pdf")) {
+        // PDF sent as inline base64 — Gemini natively reads PDF
+        const base64 = buffer.toString("base64");
+        parts.push({
+          text: `--- Document: ${file.name} ---`,
+        });
+        parts.push({
+          inline_data: { mime_type: "application/pdf", data: base64 },
+        });
+      } else if (
+        fileName.endsWith(".docx") ||
+        fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ) {
+        // DOCX → extract text with mammoth
         const mammoth = await import("mammoth");
         const result = await mammoth.extractRawText({ buffer });
-        const docText = result.value || "";
-        parts = [
-          {
-            text:
-              "TENDER DOCUMENT TEXT:\n\n" +
-              docText +
-              "\n\n" +
-              EXTRACTION_PROMPT,
-          },
-        ];
-      } catch {
+        const docText = result.value?.trim() || "";
+        if (!docText) {
+          parts.push({ text: `--- Document: ${file.name} --- [could not extract text]` });
+        } else {
+          parts.push({ text: `--- Document: ${file.name} ---\n\n${docText}` });
+        }
+      } else if (fileName.endsWith(".doc")) {
+        // Old .doc — try mammoth
+        try {
+          const mammoth = await import("mammoth");
+          const result = await mammoth.extractRawText({ buffer });
+          const docText = result.value?.trim() || "";
+          parts.push({ text: `--- Document: ${file.name} ---\n\n${docText || "[binary .doc - limited extraction]"}` });
+        } catch {
+          parts.push({ text: `--- Document: ${file.name} --- [old .doc format, limited extraction]` });
+        }
+      } else {
         return NextResponse.json(
-          {
-            error:
-              "Old .doc format not fully supported. Please save as .docx or PDF.",
-          },
+          { error: `Unsupported file type: ${file.name}. Use PDF or DOCX.` },
           { status: 400 }
         );
       }
-    } else {
-      return NextResponse.json(
-        {
-          error: "Unsupported file type. Please upload a PDF or DOCX file.",
-        },
-        { status: 400 }
-      );
     }
 
-    // Call Gemini
+    // Add the extraction instruction at the end
+    parts.push({ text: "\n\n" + EXTRACTION_PROMPT });
+
+    // Call Gemini with all parts in one request
     const geminiRes = await fetch(GEMINI_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -137,7 +131,7 @@ export async function POST(req: NextRequest) {
         contents: [{ parts }],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 4096,
+          maxOutputTokens: 8192,
         },
       }),
     });
@@ -152,8 +146,7 @@ export async function POST(req: NextRequest) {
     }
 
     const geminiData = await geminiRes.json();
-    const rawText =
-      geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     // Extract JSON from response
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
@@ -169,9 +162,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, data: parsed });
   } catch (err) {
     console.error("parse-tender error:", err);
-    return NextResponse.json(
-      { error: String(err) || "Internal error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: String(err) || "Internal error" }, { status: 500 });
   }
 }
