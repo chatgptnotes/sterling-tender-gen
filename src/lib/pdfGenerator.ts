@@ -3,7 +3,7 @@
 import jsPDF from "jspdf";
 import { COMPANY, POWER_STATIONS, TenderFormData } from "./constants";
 import { addDeclarationToDoc, loadSterlingImages, addLetterheadHeader, addLetterheadFooter } from "./declarationPDF";
-import { addAnnexureCToDoc, addDeviationSheetToDoc, addQuestionnaireToDoc, addItemDetailsToDoc } from "./documentPDFs";
+import { addSelfDeclarationToDoc, addAnnexureCToDoc, addDeviationSheetToDoc, addQuestionnaireToDoc, addItemDetailsToDoc } from "./documentPDFs";
 
 const ORANGE = [249, 115, 22] as const;
 const NAVY = [30, 58, 95] as const;
@@ -589,10 +589,8 @@ export async function generateTenderPDF(data: TenderFormData): Promise<void> {
     { fn: generateQuestionnaire, name: "QUESTIONNAIRE" },
   ];
 
-  // Page 1: Self Declaration (old style)
-  const headerBottom = addHeader(doc, pageWidth);
-  addFooter(doc, pageWidth, pageHeight);
-  generateSelfDeclaration(doc, data, headerBottom + 4, pageWidth, pageHeight);
+  // Page 1: Self Declaration — exact Sterling letterhead format
+  await addSelfDeclarationToDoc(doc, data, logoDataUrl, stampDataUrl);
 
   // Page 2: Declaration/Undertaking — EXACT LETTERHEAD FORMAT
   doc.addPage();

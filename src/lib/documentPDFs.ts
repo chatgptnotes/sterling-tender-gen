@@ -8,7 +8,89 @@ import {
   formatDate,
   getStation,
 } from "./declarationPDF";
-// Note: addLetterheadHeader and addLetterheadFooter are used only in Annexure C (Sterling letterhead)
+// Note: addLetterheadHeader and addLetterheadFooter are used in Annexure C and Self Declaration (Sterling letterhead)
+
+// ─── SELF DECLARATION ────────────────────────────────────────────────────────
+export async function addSelfDeclarationToDoc(
+  doc: jsPDF,
+  data: TenderFormData,
+  logoDataUrl?: string,
+  stampDataUrl?: string
+): Promise<void> {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentWidth = pageWidth - 2 * margin;
+
+  // Sterling letterhead at top
+  let y = addLetterheadHeader(doc, logoDataUrl || "", pageWidth);
+
+  // Date and Ref — right aligned, below header
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Date: ${formatDate(data.date)}`, pageWidth - margin, y + 2, { align: "right" });
+  y += 7;
+  const refText = data.reference || `${data.powerStationCode || "BTPS"}/${data.tenderDescription ? data.tenderDescription.split(" ").slice(0, 3).join(" ") : "Tender"}`;
+  doc.text(`Ref: ${refText}`, pageWidth - margin, y, { align: "right" });
+  y += 12;
+
+  // Title — centered, underlined
+  doc.setFont("times", "bold");
+  doc.setFontSize(13);
+  doc.text("SELF DECLARATION", pageWidth / 2, y, { align: "center" });
+  const titleW = doc.getTextWidth("SELF DECLARATION");
+  doc.setLineWidth(0.5);
+  doc.line(pageWidth / 2 - titleW / 2, y + 1.5, pageWidth / 2 + titleW / 2, y + 1.5);
+  y += 10;
+
+  // Intro sentence
+  doc.setFont("times", "normal");
+  doc.setFontSize(11);
+  const introText = `I, ${COMPANY.proprietor} hereby declare that, I am the authorized representative of M/s ${COMPANY.name}`;
+  const introLines = doc.splitTextToSize(introText, contentWidth);
+  doc.text(introLines, margin, y);
+  y += introLines.length * 6 + 5;
+
+  // Clause 1
+  const clause1 = `1. That we hereby declare that as on present date of filling this form, Date ${formatDate(data.date)}, we have No pending dues with respect to Quarter Rent, another electricity bills or any recovery is pending from MSPGCL to our Firm M/s. ${COMPANY.name}`;
+  const c1Lines = doc.splitTextToSize(clause1, contentWidth);
+  doc.text(c1Lines, margin, y);
+  y += c1Lines.length * 6 + 6;
+
+  // Clause 2
+  const clause2 = `2. That we shall comply with all health, safety and welfare statutory requirements as envisaged in the provisions of the Factories Act, 1948 and Rules framed there under. We shall be fully responsible for breach of any provisions of the said Act and Rules.`;
+  const c2Lines = doc.splitTextToSize(clause2, contentWidth);
+  doc.text(c2Lines, margin, y);
+  y += c2Lines.length * 6 + 8;
+
+  // Closing statement
+  const closingText = `We hereby declare that the above information is correct and nothing has been concealed in any manner whatsoever. If undertaking furnished by us is found to be incorrect at any stage, our firm shall be liable for rejection and disqualification from Tender bid.`;
+  const closingLines = doc.splitTextToSize(closingText, contentWidth);
+  doc.text(closingLines, margin, y);
+  y += closingLines.length * 6 + 14;
+
+  // Stamp above signature block (right side)
+  if (stampDataUrl) {
+    doc.addImage(stampDataUrl, "PNG", pageWidth - margin - 32, y - 5, 28, 28);
+  }
+
+  // Signature block
+  doc.setFont("times", "normal");
+  doc.setFontSize(11);
+  doc.text(`Date: ${formatDate(data.date)}`, margin, y + 5);
+  doc.text("Place: Nagpur", margin, y + 12);
+  y += 20;
+
+  doc.setFont("times", "bold");
+  doc.text("Akhil Bahale", pageWidth - margin, y, { align: "right" });
+  y += 7;
+  doc.setFont("times", "normal");
+  doc.text(`For ${COMPANY.name}`, pageWidth - margin, y, { align: "right" });
+
+  // Sterling footer
+  addLetterheadFooter(doc, pageWidth, pageHeight);
+}
 
 // ─── ANNEXURE C ──────────────────────────────────────────────────────────────
 export async function addAnnexureCToDoc(
