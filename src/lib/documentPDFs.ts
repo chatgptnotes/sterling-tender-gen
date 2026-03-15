@@ -528,15 +528,15 @@ export async function addItemDetailsToDoc(
   doc.text(`Ref.: E-Tender. Rfx No ${data.rfxNumber || "[RFx]"}`, margin, y);
   y += 8;
 
-  // Table columns — widths must sum to contentWidth (180mm for A4 with 15mm margins)
-  // SR:10 + SETS:38 + HSN:24 + MAKE:35 + SPECS:58 + REMARKS:15 = 180
+  // Column widths proportional to original DOCX (twips: 697, 2088, 3482, 2948, 2911, 1799 = 13925 total)
+  // Scaled to 180mm content width: 9+27+45+38+38+23 = 180
   const cols = [
-    { header: "SR. NO.", width: 10 },
-    { header: "ITEM CODE\n(SETS Code)", width: 38 },
-    { header: "HSN /SAC CODE\n(As per GST Act\nNotified by GOI)", width: 24 },
-    { header: "MAKE & MODEL\nOFFERED BY\nBIDDER *", width: 35 },
-    { header: "TECHNICAL\nSPECIFICATIONS\nOFFERED BY\nBIDDERS*", width: 58 },
-    { header: "REMARKS\n(IF ANY)", width: 15 },
+    { header: "SR. NO.", width: 9 },
+    { header: "ITEM CODE\n(SETS Code)", width: 27 },
+    { header: "HSN /SAC CODE\n(As per GST Act\nNotified by GOI)", width: 45 },
+    { header: "MAKE & MODEL\nOFFERED BY\nBIDDER *", width: 38 },
+    { header: "TECHNICAL\nSPECIFICATIONS\nOFFERED BY\nBIDDERS*", width: 38 },
+    { header: "REMARKS\n(IF ANY)", width: 23 },
   ];
 
   // Header row — 3 lines tall
@@ -572,10 +572,10 @@ export async function addItemDetailsToDoc(
   // Data rows
   data.items.forEach((item, idx) => {
     const rowLines = Math.max(
-      doc.splitTextToSize(item.sapCode || "-", cols[1].width - 3).length,
-      doc.splitTextToSize(item.hsnCode || "-", cols[2].width - 3).length,
-      doc.splitTextToSize(item.makeModel || data.makeOffered || "-", cols[3].width - 3).length,
-      doc.splitTextToSize(item.techSpecs || "AS PER TENDER", cols[4].width - 3).length,
+      doc.splitTextToSize(item.sapCode || "-", cols[1].width - 2).length,
+      doc.splitTextToSize(item.hsnCode || "-", cols[2].width - 2).length,
+      doc.splitTextToSize(item.makeModel || data.makeOffered || "-", cols[3].width - 2).length,
+      doc.splitTextToSize(item.techSpecs || "AS PER TENDER", cols[4].width - 2).length,
       1
     );
     const rowH = Math.max(rowLines * 5 + 4, 12);
