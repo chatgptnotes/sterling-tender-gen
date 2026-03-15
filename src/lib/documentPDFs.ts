@@ -68,7 +68,16 @@ export async function addSelfDeclarationToDoc(
   const closingText = `We hereby declare that the above information is correct and nothing has been concealed in any manner whatsoever. If undertaking furnished by us is found to be incorrect at any stage, our firm shall be liable for rejection and disqualification from Tender bid.`;
   const closingLines = doc.splitTextToSize(closingText, contentWidth);
   doc.text(closingLines, margin, y);
-  y += closingLines.length * 6 + 14;
+  y += closingLines.length * 6 + 8;
+
+  // If not enough space for stamp + sig block (need ~55mm), new page
+  if (y > pageHeight - 60) {
+    doc.addPage();
+    addLetterheadFooter(doc, pageWidth, pageHeight);
+    y = 25;
+  }
+
+  y += 6;
 
   // Stamp above signature block (right side)
   if (stampDataUrl) {
@@ -198,11 +207,27 @@ export async function addAnnexureCToDoc(
 
   remainingPoints.forEach((pt) => {
     const lines = doc.splitTextToSize(pt, contentWidth);
-    doc.text(lines, margin, y);
-    y += lines.length * 5 + 2;
+    // Page overflow mid-content
+    lines.forEach((line: string) => {
+      if (y > pageHeight - 30) {
+        doc.addPage();
+        addLetterheadFooter(doc, pageWidth, pageHeight);
+        y = 20;
+      }
+      doc.text(line, margin, y);
+      y += 5;
+    });
+    y += 2;
   });
 
-  y += 3;
+  y += 5;
+
+  // If not enough space for stamp + full sig block (need ~75mm), new page
+  if (y > pageHeight - 80) {
+    doc.addPage();
+    addLetterheadFooter(doc, pageWidth, pageHeight);
+    y = 25;
+  }
 
   // Stamp
   if (stampDataUrl) {
@@ -210,6 +235,8 @@ export async function addAnnexureCToDoc(
   }
 
   // Signature block
+  doc.setFont("times", "normal");
+  doc.setFontSize(10.5);
   doc.text(`Date: ${formatDate(data.date)}`, margin, y + 18);
   doc.setFont("times", "bold");
   doc.text("(Printed Name) AKHIL BAHALE", pageWidth - margin, y + 18, { align: "right" });
@@ -219,7 +246,7 @@ export async function addAnnexureCToDoc(
   doc.text("(Designation) Proprietor", pageWidth - margin, y, { align: "right" });
   y += 6;
   doc.text("Signature- ____________________", pageWidth - margin, y, { align: "right" });
-  y += 10;
+  y += 12;
 
   // Witnesses
   doc.setFont("times", "bold");
@@ -342,7 +369,16 @@ export async function addDeviationSheetToDoc(
     y += 5;
   }
 
-  y += 8;
+  y += 5;
+
+  // Overflow check before signature block
+  const pageHeightDS = doc.internal.pageSize.getHeight();
+  if (y > pageHeightDS - 55) {
+    doc.addPage();
+    y = 20;
+  }
+
+  y += 3;
   // Stamp above signature block
   if (stampDataUrl) {
     doc.addImage(stampDataUrl, "PNG", pageWidth - margin - 32, y - 5, 28, 28);
@@ -466,8 +502,16 @@ export async function addQuestionnaireToDoc(
   y += 8;
   doc.setFont("times", "italic");
   doc.setFontSize(9);
-  doc.text("I / We hereby undertake to certify that the information and supporting documents submitted along with tender are true and authentic. Any information / document if found false, I/We are liable for action deemed fit by MSPGCL", margin, y, { maxWidth: contentWidth });
-  y += 5;
+  const undertakeLines = doc.splitTextToSize("I / We hereby undertake to certify that the information and supporting documents submitted along with tender are true and authentic. Any information / document if found false, I/We are liable for action deemed fit by MSPGCL", contentWidth);
+  doc.text(undertakeLines, margin, y);
+  y += undertakeLines.length * 5 + 5;
+
+  // Overflow check before signature block
+  const pageHeightQ = doc.internal.pageSize.getHeight();
+  if (y > pageHeightQ - 55) {
+    doc.addPage();
+    y = 20;
+  }
 
   // Stamp placed above/beside signature block
   if (stampDataUrl) {
@@ -619,7 +663,14 @@ export async function addItemDetailsToDoc(
     y += rowH;
   });
 
-  y += 10;
+  y += 8;
+
+  // Overflow check before signature
+  const pageHeightID = doc.internal.pageSize.getHeight();
+  if (y > pageHeightID - 50) {
+    doc.addPage();
+    y = 20;
+  }
 
   // Stamp
   if (stampDataUrl) {
