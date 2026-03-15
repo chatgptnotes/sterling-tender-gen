@@ -1,15 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Trash2, FileText, Receipt, Truck, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useRef } from "react";
+import { Plus, Trash2, FileText, Receipt, Truck, ChevronDown, ChevronUp, Upload, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { TenderFormData, TenderItem, defaultFormData, defaultItem, POWER_STATIONS } from "@/lib/constants";
 import { generateTenderPDF, generateTaxInvoice, generateDeliveryMemo } from "@/lib/pdfGenerator";
 import { generateDeclarationPDF } from "@/lib/declarationPDF";
 // generateDeclarationPDF is used inside generateTenderPDF combined flow
 
+type ParseStatus = "idle" | "uploading" | "parsing" | "done" | "error";
+
 export default function Home() {
   const [form, setForm] = useState<TenderFormData>({ ...defaultFormData, items: [{ ...defaultItem }] });
   const [openSections, setOpenSections] = useState({ tender: true, items: true, invoice: false, delivery: false });
+  const [parseStatus, setParseStatus] = useState<ParseStatus>("idle");
+  const [parseError, setParseError] = useState("");
+  const [parsedFileName, setParsedFileName] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleSection = (key: keyof typeof openSections) =>
     setOpenSections((s) => ({ ...s, [key]: !s[key] }));
@@ -32,6 +38,58 @@ export default function Home() {
 
   const totalAmount = form.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
+  const handleTenderUpload = async (file: File) => {
+    if (!file) return;
+    setParsedFileName(file.name);
+    setParseStatus("parsing");
+    setParseError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/parse-tender", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Parsing failed");
+      }
+      const d = json.data;
+      // Apply extracted fields to form
+      setForm((prev) => ({
+        ...prev,
+        rfxNumber: d.rfxNumber || prev.rfxNumber,
+        tenderNumber: d.tenderNumber || prev.tenderNumber,
+        tenderDescription: d.tenderDescription || prev.tenderDescription,
+        tenderIssueDate: d.tenderIssueDate || prev.tenderIssueDate,
+        date: d.date || prev.date,
+        powerStationCode: d.powerStationCode || prev.powerStationCode,
+        customStationName: d.customStationName || prev.customStationName,
+        customStationAddress: d.customStationAddress || prev.customStationAddress,
+        supplyType: (d.supplyType === "imported" ? "imported" : "indigenous"),
+        deliveryPeriod: d.deliveryPeriod || prev.deliveryPeriod,
+        makeOffered: d.makeOffered || prev.makeOffered,
+        dealerType: (["Manufacturer", "Authorized Dealer", "Dealer"].includes(d.dealerType)
+          ? d.dealerType : prev.dealerType) as TenderFormData["dealerType"],
+        items: d.items && d.items.length > 0
+          ? d.items.map((it: Partial<TenderItem>) => ({
+              ...defaultItem,
+              description: it.description || "",
+              sapCode: it.sapCode || "",
+              hsnCode: it.hsnCode || "",
+              makeModel: it.makeModel || "",
+              quantity: Number(it.quantity) || 1,
+              unit: it.unit || "Nos",
+              unitPrice: Number(it.unitPrice) || 0,
+              techSpecs: it.techSpecs || "",
+              remarks: it.remarks || "",
+            }))
+          : prev.items,
+      }));
+      setParseStatus("done");
+    } catch (err: unknown) {
+      setParseError(err instanceof Error ? err.message : "Unknown error");
+      setParseStatus("error");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -48,6 +106,84 @@ export default function Home() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
+
+        {/* AI Tender Parser */}
+        <div className="bg-white rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+          <div style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #2a4f80 100%)" }}
+            className="px-5 py-4 flex items-center gap-3">
+            <div className="bg-orange-500 rounded-lg p-1.5">
+              <Upload size={18} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-white font-bold text-sm">AI Tender Auto-Fill</h2>
+              <p className="text-blue-200 text-xs mt-0.5">Upload a tender PDF or DOCX — Gemini AI reads it and fills all fields automatically</p>
+            </div>
+          </div>
+          <div className="p-5">
+            <div
+              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
+                ${parseStatus === "parsing" ? "border-orange-300 bg-orange-50" :
+                  parseStatus === "done" ? "border-green-400 bg-green-50" :
+                  parseStatus === "error" ? "border-red-300 bg-red-50" :
+                  "border-gray-300 hover:border-orange-400 hover:bg-orange-50 bg-gray-50"}`}
+              onClick={() => parseStatus !== "parsing" && fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const f = e.dataTransfer.files?.[0];
+                if (f) handleTenderUpload(f);
+              }}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.doc"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleTenderUpload(f);
+                  e.target.value = "";
+                }}
+              />
+              {parseStatus === "idle" && (
+                <>
+                  <Upload size={32} className="mx-auto text-gray-400 mb-3" />
+                  <p className="text-sm font-medium text-gray-600">Drop your tender file here or click to browse</p>
+                  <p className="text-xs text-gray-400 mt-1">Supports PDF, DOCX — Max 20MB</p>
+                </>
+              )}
+              {parseStatus === "parsing" && (
+                <>
+                  <Loader2 size={32} className="mx-auto text-orange-500 mb-3 animate-spin" />
+                  <p className="text-sm font-medium text-orange-700">Gemini AI is reading the tender...</p>
+                  <p className="text-xs text-orange-500 mt-1">{parsedFileName}</p>
+                </>
+              )}
+              {parseStatus === "done" && (
+                <>
+                  <CheckCircle size={32} className="mx-auto text-green-500 mb-3" />
+                  <p className="text-sm font-medium text-green-700">Fields filled successfully</p>
+                  <p className="text-xs text-green-500 mt-1">{parsedFileName} — review and edit below</p>
+                  <button
+                    className="mt-3 text-xs text-gray-500 underline"
+                    onClick={(e) => { e.stopPropagation(); setParseStatus("idle"); }}
+                  >Upload another file</button>
+                </>
+              )}
+              {parseStatus === "error" && (
+                <>
+                  <AlertCircle size={32} className="mx-auto text-red-500 mb-3" />
+                  <p className="text-sm font-medium text-red-700">Parsing failed</p>
+                  <p className="text-xs text-red-500 mt-1">{parseError}</p>
+                  <button
+                    className="mt-3 text-xs text-blue-600 underline"
+                    onClick={(e) => { e.stopPropagation(); setParseStatus("idle"); fileInputRef.current?.click(); }}
+                  >Try again</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* SECTION: Tender Details */}
         <Section
