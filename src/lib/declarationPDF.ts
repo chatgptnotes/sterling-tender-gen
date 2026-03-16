@@ -43,49 +43,108 @@ export function formatDate(dateStr: string): string {
 }
 
 // ─── LETTERHEAD HEADER ───────────────────────────────────────────────────────
+// Matches the official Sterling letterhead PDF exactly:
+// - Logo image centered at top (if available)
+// - Company name in red bold, centered, with red underline
+// - Address in black bold centered
+// - Email centered (label bold black, value blue)
+// - Website + Contact on same line centered
+// - Red horizontal divider line
 export function addLetterheadHeader(doc: jsPDF, logoDataUrl: string, pageWidth: number): number {
   const margin = 15;
-  const logoW = 38;
-  const logoH = 12;
-  doc.addImage(logoDataUrl, "PNG", margin, 8, logoW, logoH);
+  const RED: [number, number, number] = [212, 32, 39];   // #D42027
+  const BLUE: [number, number, number] = [5, 99, 193];   // #0563C1
+  const BLACK: [number, number, number] = [0, 0, 0];
 
-  doc.setFont("times", "bold");
+  let y = 8;
+
+  // Logo — centered at top if available
+  if (logoDataUrl) {
+    const logoW = 35;
+    const logoH = 16;
+    doc.addImage(logoDataUrl, "PNG", pageWidth / 2 - logoW / 2, y, logoW, logoH);
+    y += logoH + 3;
+  } else {
+    y += 5;
+  }
+
+  // Company name — red bold centered
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.setTextColor(0, 0, 0);
-  const textX = margin + logoW + 4;
-  const textWidth = pageWidth - margin - textX;
-  doc.text("STERLING ELECTRICALS", textX + textWidth / 2, 12, { align: "center" });
-  doc.text("& TECHNOLOGIES", textX + textWidth / 2, 18, { align: "center" });
+  doc.setTextColor(...RED);
+  doc.text("STERLING ELECTRICALS & TECHNOLOGIES", pageWidth / 2, y, { align: "center" });
+  // Red underline
+  const nameW = doc.getTextWidth("STERLING ELECTRICALS & TECHNOLOGIES");
+  doc.setDrawColor(...RED);
+  doc.setLineWidth(0.5);
+  doc.line(pageWidth / 2 - nameW / 2, y + 1, pageWidth / 2 + nameW / 2, y + 1);
+  y += 7;
 
-  const lineY = 23;
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.8);
-  doc.line(margin, lineY, pageWidth - margin, lineY);
+  // Address — black bold centered
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...BLACK);
+  doc.text("PLOT N0 1-A, ARYA NAGAR, BEHIND KORADI NAKA, NAGPUR-440 030", pageWidth / 2, y, { align: "center" });
+  y += 5;
+
+  // Email — "E-mail- " black bold + email blue underlined
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...BLACK);
+  const emailLabel = "E-mail- ";
+  const emailValue = "akhilbahale@rediffmail.com";
+  const emailLabelW = doc.getTextWidth(emailLabel);
+  const emailValueW = doc.getTextWidth(emailValue);
+  const emailTotalW = emailLabelW + emailValueW;
+  const emailStartX = pageWidth / 2 - emailTotalW / 2;
+  doc.text(emailLabel, emailStartX, y);
+  doc.setTextColor(...BLUE);
+  doc.text(emailValue, emailStartX + emailLabelW, y);
   doc.setLineWidth(0.3);
-  doc.line(margin, lineY + 1.5, pageWidth - margin, lineY + 1.5);
+  doc.line(emailStartX + emailLabelW, y + 0.8, emailStartX + emailLabelW + emailValueW, y + 0.8);
+  y += 5;
 
-  return lineY + 5;
+  // Website + Contact — on same line, centered as a group
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...BLACK);
+  const webContact = "Website: www.sterlingtech.in          Contact No- 7972534245, 9730005841";
+  doc.text(webContact, pageWidth / 2, y, { align: "center" });
+  y += 5;
+
+  // Red horizontal divider line
+  doc.setDrawColor(...RED);
+  doc.setLineWidth(1);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 5;
+
+  // Reset colors
+  doc.setTextColor(...BLACK);
+  doc.setDrawColor(...BLACK);
+
+  return y;
 }
 
 // ─── LETTERHEAD FOOTER ───────────────────────────────────────────────────────
 export function addLetterheadFooter(doc: jsPDF, pageWidth: number, pageHeight: number) {
   const margin = 15;
   const footerY = pageHeight - 14;
+  const RED: [number, number, number] = [212, 32, 39];
 
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.8);
+  // Red top line for footer
+  doc.setDrawColor(...RED);
+  doc.setLineWidth(1);
   doc.line(margin, footerY - 3, pageWidth - margin, footerY - 3);
-  doc.setLineWidth(0.3);
-  doc.line(margin, footerY - 1.5, pageWidth - margin, footerY - 1.5);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(0, 0, 0);
   doc.text(`Address- ${COMPANY.address}`, pageWidth / 2, footerY + 1, { align: "center" });
   doc.text(
-    `E-mail- ${COMPANY.email},  Website: ${COMPANY.website},  Contact No- ${COMPANY.contact},  GST No.: ${COMPANY.gst}`,
+    `E-mail- ${COMPANY.email}  |  Website: ${COMPANY.website}  |  Contact No- ${COMPANY.contact}  |  GST No.: ${COMPANY.gst}`,
     pageWidth / 2, footerY + 5, { align: "center" }
   );
+  doc.setDrawColor(0, 0, 0);
 }
 
 // ─── CORE: Add declaration content to an existing jsPDF doc ──────────────────

@@ -118,7 +118,9 @@ export function generateSelfDeclaration(doc: jsPDF, data: TenderFormData, startY
   y += introLines.length * 5 + 4;
 
   doc.setFont("helvetica", "bold");
-  doc.text(`Sub: Declaration regarding RFx: ${data.rfxNumber || "[RFx Number]"}`, margin, y);
+  doc.text("Sub: Declaration regarding RFx: ", margin, y);
+  const subRfxLabelW = doc.getTextWidth("Sub: Declaration regarding RFx: ");
+  doc.text(data.rfxNumber || "[RFx Number]", margin + subRfxLabelW, y);
   y += 7;
 
   doc.setFont("helvetica", "normal");
@@ -191,10 +193,17 @@ export function generateDeclarationUndertaking(doc: jsPDF, data: TenderFormData,
   doc.text(station.address, margin, y); y += 8;
 
   doc.setFont("helvetica", "bold");
-  const subj = `Sub: Undertaking as per Ministry of Power Order and Public Procurement Policy - RFx: ${data.rfxNumber || "[RFx]"}`;
-  const subjLines = doc.splitTextToSize(subj, contentWidth);
-  doc.text(subjLines, margin, y);
-  y += subjLines.length * 5 + 5;
+  const subjPrefix = `Sub: Undertaking as per Ministry of Power Order and Public Procurement Policy - RFx: `;
+  const subjPrefixLines = doc.splitTextToSize(subjPrefix, contentWidth);
+  // Print prefix bold, then rfxNumber bold on the last line
+  if (subjPrefixLines.length > 1) {
+    doc.text(subjPrefixLines.slice(0, -1), margin, y);
+    y += (subjPrefixLines.length - 1) * 5;
+  }
+  const lastPrefixLine = subjPrefixLines[subjPrefixLines.length - 1];
+  doc.text(lastPrefixLine, margin, y);
+  doc.text(data.rfxNumber || "[RFx]", margin + doc.getTextWidth(lastPrefixLine), y);
+  y += 5 + 5;
 
   doc.setFont("helvetica", "normal");
   const declaration = `I / We, ${COMPANY.proprietor}, Proprietor of ${COMPANY.name}, do hereby declare and undertake as follows:
@@ -252,9 +261,11 @@ export function generateAnnexureC(doc: jsPDF, data: TenderFormData, startY: numb
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(...NAVY);
-  doc.text(`Tender No.: ${data.tenderNumber || "[Tender Number]"}`, margin, y); y += 5;
+  doc.text("Tender No.: ", margin, y);
+  doc.text(data.tenderNumber || "[Tender Number]", margin + doc.getTextWidth("Tender No.: "), y); y += 5;
   doc.text(`Description: ${data.tenderDescription || "[Description]"}`, margin, y); y += 5;
-  doc.text(`RFx No.: ${data.rfxNumber || "[RFx Number]"}`, margin, y); y += 8;
+  doc.text("RFx No.: ", margin, y);
+  doc.text(data.rfxNumber || "[RFx Number]", margin + doc.getTextWidth("RFx No.: "), y); y += 8;
 
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...BLACK);
@@ -325,8 +336,10 @@ export function generateItemDetails(doc: jsPDF, data: TenderFormData, startY: nu
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(...NAVY);
-  doc.text(`RFx No.: ${data.rfxNumber || "-"}`, margin, y);
-  doc.text(`Tender No.: ${data.tenderNumber || "-"}`, pageWidth / 2, y);
+  doc.text("RFx No.: ", margin, y);
+  doc.text(data.rfxNumber || "-", margin + doc.getTextWidth("RFx No.: "), y);
+  doc.text("Tender No.: ", pageWidth / 2, y);
+  doc.text(data.tenderNumber || "-", pageWidth / 2 + doc.getTextWidth("Tender No.: "), y);
   y += 5;
   doc.text(`Description: ${data.tenderDescription || "-"}`, margin, y);
   y += 5;
@@ -438,7 +451,7 @@ export function generateDeviationSheet(doc: jsPDF, data: TenderFormData, startY:
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(...NAVY);
-  doc.text(`RFx No.: ${data.rfxNumber || "-"}    Tender No.: ${data.tenderNumber || "-"}`, margin, y); y += 5;
+  doc.text("RFx No.: ", margin, y); doc.text(data.rfxNumber || "-", margin + doc.getTextWidth("RFx No.: "), y); const _devAfterRfx = margin + doc.getTextWidth("RFx No.: ") + doc.getTextWidth(data.rfxNumber || "-") + 6; doc.text("Tender No.: ", _devAfterRfx, y); doc.text(data.tenderNumber || "-", _devAfterRfx + doc.getTextWidth("Tender No.: "), y); y += 5;
   doc.text(`Description: ${data.tenderDescription || "-"}`, margin, y); y += 5;
   doc.text(`Station: ${station.name}    Date: ${formatDate(data.date)}`, margin, y); y += 8;
 
@@ -506,7 +519,7 @@ export function generateQuestionnaire(doc: jsPDF, data: TenderFormData, startY: 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(...NAVY);
-  doc.text(`RFx No.: ${data.rfxNumber || "-"}    Tender No.: ${data.tenderNumber || "-"}`, margin, y); y += 5;
+  doc.text("RFx No.: ", margin, y); doc.text(data.rfxNumber || "-", margin + doc.getTextWidth("RFx No.: "), y); const _qAfterRfx = margin + doc.getTextWidth("RFx No.: ") + doc.getTextWidth(data.rfxNumber || "-") + 6; doc.text("Tender No.: ", _qAfterRfx, y); doc.text(data.tenderNumber || "-", _qAfterRfx + doc.getTextWidth("Tender No.: "), y); y += 5;
   doc.text(`Description: ${data.tenderDescription || "-"}    Date: ${formatDate(data.date)}`, margin, y); y += 8;
 
   const questions = [
@@ -651,7 +664,8 @@ export function generateTaxInvoice(data: TenderFormData): void {
   doc.text(`PO No.: ${data.poNumber || "-"}`, margin, y);
   doc.text(`PO Date: ${formatDate(data.poDate)}`, pageWidth / 2, y);
   y += 5;
-  doc.text(`RFx No.: ${data.rfxNumber || "-"}`, margin, y);
+  doc.text("RFx No.: ", margin, y);
+  doc.text(data.rfxNumber || "-", margin + doc.getTextWidth("RFx No.: "), y);
   doc.text(`GST No.: ${COMPANY.gst}`, pageWidth / 2, y);
   y += 8;
 

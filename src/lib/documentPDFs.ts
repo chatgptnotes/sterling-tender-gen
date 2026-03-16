@@ -305,9 +305,18 @@ export async function addDeviationSheetToDoc(
   const descLines = doc.splitTextToSize(data.tenderDescription || "[Tender Description]", contentWidth);
   doc.text(descLines, margin, y);
   y += descLines.length * 5 + 3;
-  doc.text(`Tender for: ${data.rfxNumber || "[RFx Number]"}`, margin, y);
+  // Tender for: RFx bold
+  doc.setFont("times", "normal");
+  doc.text("Tender for: ", margin, y);
+  doc.setFont("times", "bold");
+  doc.text(data.rfxNumber || "[RFx Number]", margin + doc.getTextWidth("Tender for: "), y);
+  doc.setFont("times", "normal");
   y += 5;
-  doc.text(`Tender No: ${data.tenderNumber || "[Tender Number]"}`, margin, y);
+  // Tender No bold
+  doc.text("Tender No: ", margin, y);
+  doc.setFont("times", "bold");
+  doc.text(data.tenderNumber || "[Tender Number]", margin + doc.getTextWidth("Tender No: "), y);
+  doc.setFont("times", "normal");
   doc.text(`Date: ${formatDate(data.date)}`, pageWidth - margin, y, { align: "right" });
   y += 8;
 
@@ -392,7 +401,11 @@ export async function addDeviationSheetToDoc(
   doc.setFont("times", "normal");
   doc.text("DESIGNATION: Proprietor", margin, y);
   y += 5;
-  doc.text(`Tender No: ${data.tenderNumber || "-"}`, margin, y);
+  doc.setFont("times", "normal");
+  doc.text("Tender No: ", margin, y);
+  doc.setFont("times", "bold");
+  doc.text(data.tenderNumber || "-", margin + doc.getTextWidth("Tender No: "), y);
+  doc.setFont("times", "normal");
   doc.text(`Date: ${formatDate(data.date)}`, pageWidth - margin, y, { align: "right" });
 }
 
@@ -428,7 +441,11 @@ export async function addQuestionnaireToDoc(
   const subLines = doc.splitTextToSize(sub, contentWidth);
   doc.text(subLines, margin, y);
   y += subLines.length * 5 + 2;
-  doc.text(`Ref.: E-Tender No. ${data.rfxNumber || "[RFx]"}`, margin, y); y += 5;
+  doc.text("Ref.: E-Tender No. ", margin, y);
+  doc.setFont("times", "bold");
+  doc.text(data.rfxNumber || "[RFx]", margin + doc.getTextWidth("Ref.: E-Tender No. "), y);
+  doc.setFont("times", "normal");
+  y += 5;
   doc.setLineWidth(0.5);
   doc.line(margin, y, pageWidth - margin, y);
   y += 5;
@@ -569,7 +586,10 @@ export async function addItemDetailsToDoc(
   const descLines = doc.splitTextToSize(descText, contentWidth);
   doc.text(descLines, margin, y);
   y += descLines.length * 5 + 2;
-  doc.text(`Ref.: E-Tender. Rfx No ${data.rfxNumber || "[RFx]"}`, margin, y);
+  doc.text("Ref.: E-Tender. Rfx No ", margin, y);
+  doc.setFont("times", "bold");
+  doc.text(data.rfxNumber || "[RFx]", margin + doc.getTextWidth("Ref.: E-Tender. Rfx No "), y);
+  doc.setFont("times", "normal");
   y += 8;
 
   // Column widths proportional to original DOCX (twips: 697, 2088, 3482, 2948, 2911, 1799 = 13925 total)
