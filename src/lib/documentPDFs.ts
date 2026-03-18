@@ -7,6 +7,7 @@ import {
   addLetterheadFooter,
   formatDate,
   getStation,
+  renderTextWithBoldParts,
 } from "./declarationPDF";
 // Note: addLetterheadHeader and addLetterheadFooter are used in Annexure C and Self Declaration (Sterling letterhead)
 
@@ -14,7 +15,7 @@ import {
 export async function addSelfDeclarationToDoc(
   doc: jsPDF,
   data: TenderFormData,
-  logoDataUrl?: string,
+  letterheadDataUrl?: string,
   stampDataUrl?: string
 ): Promise<void> {
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -23,7 +24,7 @@ export async function addSelfDeclarationToDoc(
   const contentWidth = pageWidth - 2 * margin;
 
   // Sterling letterhead at top
-  let y = addLetterheadHeader(doc, logoDataUrl || "", pageWidth);
+  let y = addLetterheadHeader(doc, letterheadDataUrl || "", pageWidth);
 
   // Date and Ref — right aligned, below header
   doc.setFont("times", "normal");
@@ -44,31 +45,25 @@ export async function addSelfDeclarationToDoc(
   doc.line(pageWidth / 2 - titleW / 2, y + 1.5, pageWidth / 2 + titleW / 2, y + 1.5);
   y += 10;
 
-  // Intro sentence
+  // Intro sentence (title-case company name per original DOCX)
   doc.setFont("times", "normal");
   doc.setFontSize(11);
-  const introText = `I, ${COMPANY.proprietor} hereby declare that, I am the authorized representative of M/s ${COMPANY.name}`;
+  const introText = `I, ${COMPANY.proprietor} hereby declare that, I am the authorized representative of M/s Sterling Electricals & Technologies`;
   const introLines = doc.splitTextToSize(introText, contentWidth);
   doc.text(introLines, margin, y);
   y += introLines.length * 6 + 5;
 
-  // Clause 1
-  const clause1 = `1. That we hereby declare that as on present date of filling this form, Date ${formatDate(data.date)}, we have No pending dues with respect to Quarter Rent, another electricity bills or any recovery is pending from MSPGCL to our Firm M/s. ${COMPANY.name}`;
+  // Clause 1 (title-case company name per original DOCX)
+  const clause1 = `1. That we hereby declare that as on present date of filling this form, Date ${formatDate(data.date)}, we have No pending dues with respect to Quarter Rent, another electricity bills or any recovery is pending from MSPGCL to our Firm M/s. Sterling Electricals & Technologies`;
   const c1Lines = doc.splitTextToSize(clause1, contentWidth);
   doc.text(c1Lines, margin, y);
   y += c1Lines.length * 6 + 6;
 
-  // Clause 2
-  const clause2 = `2. That we shall comply with all health, safety and welfare statutory requirements as envisaged in the provisions of the Factories Act, 1948 and Rules framed there under. We shall be fully responsible for breach of any provisions of the said Act and Rules.`;
+  // Clause 2 + closing statement (merged into one clause per original DOCX)
+  const clause2 = `2. That we shall comply with all health, safety and welfare statutory requirements as envisaged in the provisions of the Factories Act, 1948 and Rules framed there under. We shall be fully responsible for breach of any provisions of the said Act and Rules. We hereby declare that the above information is correct and nothing has been concealed in any manner whatsoever. If undertaking furnished by us is found to be incorrect at any stage, our firm shall be liable for rejection and disqualification from Tender bid.`;
   const c2Lines = doc.splitTextToSize(clause2, contentWidth);
   doc.text(c2Lines, margin, y);
   y += c2Lines.length * 6 + 8;
-
-  // Closing statement
-  const closingText = `We hereby declare that the above information is correct and nothing has been concealed in any manner whatsoever. If undertaking furnished by us is found to be incorrect at any stage, our firm shall be liable for rejection and disqualification from Tender bid.`;
-  const closingLines = doc.splitTextToSize(closingText, contentWidth);
-  doc.text(closingLines, margin, y);
-  y += closingLines.length * 6 + 8;
 
   // If not enough space for stamp + sig block (need ~55mm), new page
   if (y > pageHeight - 60) {
@@ -95,7 +90,7 @@ export async function addSelfDeclarationToDoc(
   doc.text("Akhil Bahale", pageWidth - margin, y, { align: "right" });
   y += 7;
   doc.setFont("times", "normal");
-  doc.text(`For ${COMPANY.name}`, pageWidth - margin, y, { align: "right" });
+  doc.text("For Sterling Electricals & Technologies", pageWidth - margin, y, { align: "right" });
 
   // Sterling footer
   addLetterheadFooter(doc, pageWidth, pageHeight);
@@ -105,7 +100,7 @@ export async function addSelfDeclarationToDoc(
 export async function addAnnexureCToDoc(
   doc: jsPDF,
   data: TenderFormData,
-  logoDataUrl: string,
+  letterheadDataUrl: string,
   stampDataUrl?: string,
   sig1DataUrl?: string,
   sig2DataUrl?: string
@@ -117,7 +112,7 @@ export async function addAnnexureCToDoc(
   const station = getStation(data);
 
   addLetterheadFooter(doc, pageWidth, pageHeight);
-  let y = addLetterheadHeader(doc, logoDataUrl, pageWidth);
+  let y = addLetterheadHeader(doc, letterheadDataUrl, pageWidth);
   y += 3;
 
   // Title
@@ -156,9 +151,12 @@ export async function addAnnexureCToDoc(
   doc.setFont("times", "normal");
   const tenderDate = data.tenderIssueDate ? formatDate(data.tenderIssueDate) : formatDate(data.date);
   const opening = `In accordance with your Tender for RFx No: ${data.rfxNumber || "[RFx]"} ${data.tenderDescription || "[Description]"} Under your Tender No ${data.tenderNumber || "[Tender No]"} dated ${tenderDate} M/s. ${COMPANY.name}, ${COMPANY.address} (Hereinafter called the Tenderer) hereby submit the undertaking as under:`;
-  const openLines = doc.splitTextToSize(opening, contentWidth);
-  doc.text(openLines, margin, y);
-  y += openLines.length * 5 + 4;
+  const openLineCount = renderTextWithBoldParts(
+    doc, opening,
+    [data.rfxNumber, data.tenderNumber].filter(Boolean),
+    margin, y, contentWidth, 5
+  );
+  y += openLineCount * 5 + 4;
 
   // Point i
   const p1 = `i.\tThe Tenderer commits to undertake all measures necessary to prevent conflict of interest with other bidders which may lead to anti-competitive practices to the detriment of Purchaser interests.`;
@@ -305,17 +303,17 @@ export async function addDeviationSheetToDoc(
   const descLines = doc.splitTextToSize(data.tenderDescription || "[Tender Description]", contentWidth);
   doc.text(descLines, margin, y);
   y += descLines.length * 5 + 3;
-  // Tender for: RFx bold
+  // Tender for : RFx bold (label has space before colon per original DOC)
   doc.setFont("times", "normal");
-  doc.text("Tender for: ", margin, y);
+  doc.text("Tender for : ", margin, y);
   doc.setFont("times", "bold");
-  doc.text(data.rfxNumber || "[RFx Number]", margin + doc.getTextWidth("Tender for: "), y);
+  doc.text(data.rfxNumber || "[RFx Number]", margin + doc.getTextWidth("Tender for : "), y);
   doc.setFont("times", "normal");
   y += 5;
-  // Tender No bold
-  doc.text("Tender No: ", margin, y);
+  // Tender No- bold (dash per original DOC)
+  doc.text("Tender No- ", margin, y);
   doc.setFont("times", "bold");
-  doc.text(data.tenderNumber || "[Tender Number]", margin + doc.getTextWidth("Tender No: "), y);
+  doc.text(data.tenderNumber || "[Tender Number]", margin + doc.getTextWidth("Tender No- "), y);
   doc.setFont("times", "normal");
   doc.text(`Date: ${formatDate(data.date)}`, pageWidth - margin, y, { align: "right" });
   y += 8;
@@ -328,7 +326,7 @@ export async function addDeviationSheetToDoc(
     // NIL DEVIATION box
     doc.setFont("times", "bold");
     doc.setFontSize(14);
-    doc.text("NIL / NO DEVIATION", pageWidth / 2, y + 12, { align: "center" });
+    doc.text("NIL/NO DEVIATION", pageWidth / 2, y + 12, { align: "center" });
     doc.setLineWidth(0.8);
     doc.rect(margin + 20, y, contentWidth - 40, 22);
     y += 30;
@@ -396,15 +394,15 @@ export async function addDeviationSheetToDoc(
   doc.setFont("times", "bold");
   doc.setFontSize(10.5);
   doc.setTextColor(0, 0, 0);
-  doc.text("NAME: AKHIL BAHALE PROPRIETOR", margin, y + 8);
+  doc.text("NAME: Akhil Bahale", margin, y + 8);
   y += 13;
   doc.setFont("times", "normal");
   doc.text("DESIGNATION: Proprietor", margin, y);
   y += 5;
   doc.setFont("times", "normal");
-  doc.text("Tender No: ", margin, y);
+  doc.text("Tender No- ", margin, y);
   doc.setFont("times", "bold");
-  doc.text(data.tenderNumber || "-", margin + doc.getTextWidth("Tender No: "), y);
+  doc.text(data.tenderNumber || "-", margin + doc.getTextWidth("Tender No- "), y);
   doc.setFont("times", "normal");
   doc.text(`Date: ${formatDate(data.date)}`, pageWidth - margin, y, { align: "right" });
 }
@@ -437,13 +435,13 @@ export async function addQuestionnaireToDoc(
 
   doc.setFont("times", "normal");
   doc.setFontSize(10);
-  const sub = `Sub: ${data.tenderDescription || "[Tender Description]"}`;
+  const sub = `Sub:  ${data.tenderDescription || "[Tender Description]"}`;
   const subLines = doc.splitTextToSize(sub, contentWidth);
   doc.text(subLines, margin, y);
   y += subLines.length * 5 + 2;
-  doc.text("Ref.: E-Tender No. ", margin, y);
+  doc.text("Ref.: E-Tender. ", margin, y);
   doc.setFont("times", "bold");
-  doc.text(data.rfxNumber || "[RFx]", margin + doc.getTextWidth("Ref.: E-Tender No. "), y);
+  doc.text(data.rfxNumber || "[RFx]", margin + doc.getTextWidth("Ref.: E-Tender. "), y);
   doc.setFont("times", "normal");
   y += 5;
   doc.setLineWidth(0.5);
@@ -462,19 +460,30 @@ export async function addQuestionnaireToDoc(
   doc.setTextColor(255, 255, 255);
   doc.text("Sr.", margin + 2, y + 6);
   doc.text("PARTICULARS", margin + col1 + 2, y + 6);
-  doc.text("Information / Comments to be filled by the Supplier", margin + col1 + col2 + 2, y + 6);
+  doc.text("Information / Comments to be  filled by the Supplier", margin + col1 + col2 + 2, y + 6);
   y += headerH;
+
+  // "Please strike off whichever is not applicable" note row (per original DOC)
+  doc.setFont("times", "italic");
+  doc.setFontSize(8);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Please strike off whichever is not applicable", margin + col1 + col2 + 2, y + 5);
+  doc.setDrawColor(180, 180, 180);
+  doc.rect(margin, y, contentWidth, 7, "S");
+  doc.line(margin + col1, y, margin + col1, y + 7);
+  doc.line(margin + col1 + col2, y, margin + col1 + col2, y + 7);
+  y += 7;
 
   const rows: [string, string, string][] = [
     [
       "1",
-      "Terms of Payment:\n100% payment will be made within a period of 45 days after the receipt of material at site in good condition against RR Nos issued by consignee & submission of bills in triplicate to AGM (F & A)",
+      "Terms of Payment :  100% payment will be made within a period of 45 days after the receipt of material at site in good condition against GRN issued by consignee & submission of bills in triplicate to AGM (F & A)",
       "Acceptable",
     ],
-    ["2", "Validity\n(To be counted from the date of opening of Techno commercial bid)\n60 days", "Acceptable"],
+    ["2", "Validity   ( To be counted from the date of opening of Techno commercial bid )\n60 days", "Acceptable"],
     ["3", "Acceptance for Scope of Supply and Special Terms and Conditions", "Acceptable"],
-    ["4", "Delivery Period", data.deliveryPeriod || "As per tender"],
-    ["5", "Manufacturer / Dealer (Pls Specify)", data.dealerType || "Authorized Dealer"],
+    ["4", "Delivery Period :-.", data.deliveryPeriod || "As per tender"],
+    ["5", "Manufacturer / Dealer ( Pls Specify)", data.dealerType || "Authorized Dealer"],
     ["6", "Make Offered", data.makeOffered || (data.items[0]?.makeModel || "As per tender")],
     [
       "7",
@@ -538,14 +547,15 @@ export async function addQuestionnaireToDoc(
   doc.setFont("times", "bold");
   doc.setFontSize(10.5);
   doc.setTextColor(0, 0, 0);
-  doc.text("SEAL, SIGN & FULL NAME OF BIDDER:", margin, y + 8);
+  doc.text("SEAL, SIGN & FULL NAME OF BIDDER", margin, y + 8);
   y += 14;
   doc.setFont("times", "normal");
   doc.text(COMPANY.proprietor, margin, y);
-  doc.text(`Vendor Code: ${COMPANY.vendorCode}`, pageWidth - margin, y, { align: "right" });
 }
 
 // ─── ITEM DETAILS FORMAT ─────────────────────────────────────────────────────
+// Matches the original DOCX: Title → Table → Tender info → Stamp → Signature
+// No MSPGCL header (per original document).
 export async function addItemDetailsToDoc(
   doc: jsPDF,
   data: TenderFormData,
@@ -555,41 +565,16 @@ export async function addItemDetailsToDoc(
   const margin = 15;
   const contentWidth = pageWidth - 2 * margin;
 
-  // Plain MSPGCL form — no Sterling letterhead
   let y = 18;
 
-  // Header: MSPGCL bold centered
+  // Title — bold centered (no MSPGCL header per original DOCX)
   doc.setFont("times", "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(0, 0, 0);
-  doc.text("MAHARASHTRA STATE POWER GENERATION COMPANY LIMITED", pageWidth / 2, y, { align: "center" });
-  y += 7;
-  doc.setLineWidth(0.8);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 2;
-  doc.setLineWidth(0.3);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 7;
-
-  // Title
   doc.setFontSize(13);
+  doc.setTextColor(0, 0, 0);
   doc.text("FORMAT FOR ITEM DETAILS", pageWidth / 2, y, { align: "center" });
   const tw = doc.getTextWidth("FORMAT FOR ITEM DETAILS");
   doc.setLineWidth(0.4);
   doc.line(pageWidth / 2 - tw / 2, y + 1, pageWidth / 2 + tw / 2, y + 1);
-  y += 8;
-
-  // Tender ref line
-  doc.setFont("times", "normal");
-  doc.setFontSize(9.5);
-  const descText = `Tender: Description of Tender: ${data.tenderDescription || "[Tender Description]"}`;
-  const descLines = doc.splitTextToSize(descText, contentWidth);
-  doc.text(descLines, margin, y);
-  y += descLines.length * 5 + 2;
-  doc.text("Ref.: E-Tender. Rfx No ", margin, y);
-  doc.setFont("times", "bold");
-  doc.text(data.rfxNumber || "[RFx]", margin + doc.getTextWidth("Ref.: E-Tender. Rfx No "), y);
-  doc.setFont("times", "normal");
   y += 8;
 
   // Column widths proportional to original DOCX (twips: 697, 2088, 3482, 2948, 2911, 1799 = 13925 total)
@@ -598,12 +583,12 @@ export async function addItemDetailsToDoc(
     { header: "SR. NO.", width: 9 },
     { header: "ITEM CODE\n(SETS Code)", width: 27 },
     { header: "HSN /SAC CODE\n(As per GST Act\nNotified by GOI)", width: 45 },
-    { header: "MAKE & MODEL\nOFFERED BY\nBIDDER *", width: 38 },
+    { header: "MAKE  & MODEL\nOFFERRED BY\nBIDDER *", width: 38 },
     { header: "TECHNICAL\nSPECIFICATIONS\nOFFERED BY\nBIDDERS*", width: 38 },
     { header: "REMARKS\n(IF ANY)", width: 23 },
   ];
 
-  // Header row — 3 lines tall
+  // Header row
   const headerH = 16;
   doc.setFillColor(30, 58, 95);
   doc.rect(margin, y, contentWidth, headerH, "F");
@@ -685,6 +670,19 @@ export async function addItemDetailsToDoc(
 
   y += 8;
 
+  // Tender info — AFTER the table (per original DOCX), all bold
+  doc.setFont("times", "bold");
+  doc.setFontSize(9.5);
+  doc.setTextColor(0, 0, 0);
+  const descText = `Tender:  Description of Tender: ${data.tenderDescription || "[Tender Description]"}`;
+  const descLines = doc.splitTextToSize(descText, contentWidth);
+  doc.text(descLines, margin, y);
+  y += descLines.length * 5 + 2;
+  // Ref line with RFx number bold (entire line is bold per DOCX)
+  doc.text("Ref.: E-Tender. Rfx No  ", margin, y);
+  doc.text(data.rfxNumber || "[RFx]", margin + doc.getTextWidth("Ref.: E-Tender. Rfx No  "), y);
+  y += 8;
+
   // Overflow check before signature
   const pageHeightID = doc.internal.pageSize.getHeight();
   if (y > pageHeightID - 50) {
@@ -697,7 +695,7 @@ export async function addItemDetailsToDoc(
     doc.addImage(stampDataUrl, "PNG", pageWidth - margin - 32, y - 5, 28, 28);
   }
 
-  // Signature block
+  // Signature block (per original DOCX)
   doc.setFont("times", "bold");
   doc.setFontSize(10.5);
   doc.setTextColor(0, 0, 0);

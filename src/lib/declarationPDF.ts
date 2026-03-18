@@ -21,6 +21,49 @@ export async function loadImageAsDataURL(src: string): Promise<string> {
   });
 }
 
+// ─── RENDER LETTERHEAD FROM PDF ───────────────────────────────────────────────
+// Renders the official Sterling letterhead PDF header as a high-quality PNG data URL.
+// Cached after first render so subsequent calls are instant.
+let _letterheadCache: string | null = null;
+
+export async function loadLetterheadFromPDF(): Promise<string> {
+  if (_letterheadCache) return _letterheadCache;
+
+  // Dynamic import — only runs in browser, avoids SSR issues
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfjsLib: any = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+
+  const pdf = await pdfjsLib.getDocument("/sterling-letterhead.pdf").promise;
+  const page = await pdf.getPage(1);
+
+  // Render at 4× scale for print-quality output (~288 DPI)
+  const scale = 4;
+  const viewport = page.getViewport({ scale });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext("2d")!;
+
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  // Crop just the header (top 19% of A4 = ~56mm of 297mm)
+  const headerRatio = 0.19;
+  const headerPixelH = Math.floor(viewport.height * headerRatio);
+
+  const cropped = document.createElement("canvas");
+  cropped.width = viewport.width;
+  cropped.height = headerPixelH;
+  const croppedCtx = cropped.getContext("2d")!;
+  croppedCtx.drawImage(canvas, 0, 0, viewport.width, headerPixelH, 0, 0, viewport.width, headerPixelH);
+
+  _letterheadCache = cropped.toDataURL("image/png");
+  pdf.destroy();
+
+  return _letterheadCache;
+}
+
 export function getStation(data: TenderFormData) {
   if (data.powerStationCode === "CUSTOM") {
     return {
@@ -43,86 +86,17 @@ export function formatDate(dateStr: string): string {
 }
 
 // ─── LETTERHEAD HEADER ───────────────────────────────────────────────────────
-// Matches the official Sterling letterhead PDF exactly:
-// - Logo image centered at top (if available)
-// - Company name in red bold, centered, with red underline
-// - Address in black bold centered
-// - Email centered (label bold black, value blue)
-// - Website + Contact on same line centered
-// - Red horizontal divider line
-export function addLetterheadHeader(doc: jsPDF, logoDataUrl: string, pageWidth: number): number {
-  const margin = 15;
-  const RED: [number, number, number] = [212, 32, 39];   // #D42027
-  const BLUE: [number, number, number] = [5, 99, 193];   // #0563C1
-  const BLACK: [number, number, number] = [0, 0, 0];
+// Places the pre-rendered letterhead PDF image at the top of the page.
+// The image is the cropped header from the official Sterling letterhead PDF.
+export function addLetterheadHeader(doc: jsPDF, letterheadDataUrl: string, pageWidth: number): number {
+  // Header image = top 19% of A4 page ≈ 56mm
+  const HEADER_HEIGHT_MM = 297 * 0.19; // ~56.4mm
 
-  let y = 8;
-
-  // Logo — centered at top if available
-  if (logoDataUrl) {
-    const logoW = 35;
-    const logoH = 16;
-    doc.addImage(logoDataUrl, "PNG", pageWidth / 2 - logoW / 2, y, logoW, logoH);
-    y += logoH + 3;
-  } else {
-    y += 5;
+  if (letterheadDataUrl) {
+    doc.addImage(letterheadDataUrl, "PNG", 0, 0, pageWidth, HEADER_HEIGHT_MM);
   }
 
-  // Company name — red bold centered
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.setTextColor(...RED);
-  doc.text("STERLING ELECTRICALS & TECHNOLOGIES", pageWidth / 2, y, { align: "center" });
-  // Red underline
-  const nameW = doc.getTextWidth("STERLING ELECTRICALS & TECHNOLOGIES");
-  doc.setDrawColor(...RED);
-  doc.setLineWidth(0.5);
-  doc.line(pageWidth / 2 - nameW / 2, y + 1, pageWidth / 2 + nameW / 2, y + 1);
-  y += 7;
-
-  // Address — black bold centered
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(...BLACK);
-  doc.text("PLOT N0 1-A, ARYA NAGAR, BEHIND KORADI NAKA, NAGPUR-440 030", pageWidth / 2, y, { align: "center" });
-  y += 5;
-
-  // Email — "E-mail- " black bold + email blue underlined
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(...BLACK);
-  const emailLabel = "E-mail- ";
-  const emailValue = "akhilbahale@rediffmail.com";
-  const emailLabelW = doc.getTextWidth(emailLabel);
-  const emailValueW = doc.getTextWidth(emailValue);
-  const emailTotalW = emailLabelW + emailValueW;
-  const emailStartX = pageWidth / 2 - emailTotalW / 2;
-  doc.text(emailLabel, emailStartX, y);
-  doc.setTextColor(...BLUE);
-  doc.text(emailValue, emailStartX + emailLabelW, y);
-  doc.setLineWidth(0.3);
-  doc.line(emailStartX + emailLabelW, y + 0.8, emailStartX + emailLabelW + emailValueW, y + 0.8);
-  y += 5;
-
-  // Website + Contact — on same line, centered as a group
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(...BLACK);
-  const webContact = "Website: www.sterlingtech.in          Contact No- 7972534245, 9730005841";
-  doc.text(webContact, pageWidth / 2, y, { align: "center" });
-  y += 5;
-
-  // Red horizontal divider line
-  doc.setDrawColor(...RED);
-  doc.setLineWidth(1);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 5;
-
-  // Reset colors
-  doc.setTextColor(...BLACK);
-  doc.setDrawColor(...BLACK);
-
-  return y;
+  return HEADER_HEIGHT_MM + 2; // content starts ~58mm from top
 }
 
 // ─── LETTERHEAD FOOTER ───────────────────────────────────────────────────────
@@ -147,11 +121,94 @@ export function addLetterheadFooter(doc: jsPDF, pageWidth: number, pageHeight: n
   doc.setDrawColor(0, 0, 0);
 }
 
+// ─── INLINE BOLD HELPER ──────────────────────────────────────────────────────
+// Renders wrapped paragraph text, making specific substrings (e.g. tender/RFx
+// numbers) bold inline while the rest stays normal.
+export function renderTextWithBoldParts(
+  doc: jsPDF,
+  fullText: string,
+  boldParts: string[],
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number
+): number {
+  const activeBold = boldParts.filter((p) => p.length > 0);
+  const lines: string[] = doc.splitTextToSize(fullText, maxWidth);
+
+  lines.forEach((line: string, lineIdx: number) => {
+    const lineY = y + lineIdx * lineHeight;
+    let currentX = x;
+    let remaining = line;
+
+    while (remaining.length > 0) {
+      // Find earliest bold part in remaining text
+      let earliestIdx = remaining.length;
+      let earliestPart = "";
+
+      for (const part of activeBold) {
+        const idx = remaining.indexOf(part);
+        if (idx !== -1 && idx < earliestIdx) {
+          earliestIdx = idx;
+          earliestPart = part;
+        }
+      }
+
+      if (earliestPart) {
+        // Normal text before bold part
+        if (earliestIdx > 0) {
+          const before = remaining.substring(0, earliestIdx);
+          doc.setFont("times", "normal");
+          doc.text(before, currentX, lineY);
+          currentX += doc.getTextWidth(before);
+        }
+        // Bold part
+        doc.setFont("times", "bold");
+        doc.text(earliestPart, currentX, lineY);
+        currentX += doc.getTextWidth(earliestPart);
+        doc.setFont("times", "normal");
+        remaining = remaining.substring(earliestIdx + earliestPart.length);
+      } else {
+        doc.setFont("times", "normal");
+        doc.text(remaining, currentX, lineY);
+        remaining = "";
+      }
+    }
+  });
+
+  return lines.length;
+}
+
+// ─── STRIKETHROUGH HELPER ────────────────────────────────────────────────────
+// Draws multi-line text. If `strike` is true, draws a horizontal line through
+// each line of text (non-applicable option in the declaration).
+function drawTextWithOptionalStrike(
+  doc: jsPDF,
+  lines: string[],
+  x: number,
+  y: number,
+  lineHeight: number,
+  strike: boolean
+) {
+  doc.text(lines, x, y);
+
+  if (strike) {
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    lines.forEach((_line, i) => {
+      const lineY = y + i * lineHeight;
+      const lineW = doc.getTextWidth(lines[i]);
+      // Strike through the middle of the text (~1.2mm above baseline)
+      doc.line(x, lineY - 1.2, x + lineW, lineY - 1.2);
+    });
+  }
+}
+
 // ─── CORE: Add declaration content to an existing jsPDF doc ──────────────────
 export async function addDeclarationToDoc(
   doc: jsPDF,
   data: TenderFormData,
-  logoDataUrl: string,
+  letterheadDataUrl: string,
   stampDataUrl?: string,
   sig1DataUrl?: string,
   sig2DataUrl?: string
@@ -163,7 +220,7 @@ export async function addDeclarationToDoc(
   const station = getStation(data);
 
   addLetterheadFooter(doc, pageWidth, pageHeight);
-  let y = addLetterheadHeader(doc, logoDataUrl, pageWidth);
+  let y = addLetterheadHeader(doc, letterheadDataUrl, pageWidth);
   y += 4;
 
   // Title
@@ -203,28 +260,39 @@ export async function addDeclarationToDoc(
     : (data.date ? formatDate(data.date) : "[Date]");
 
   const opening = `In accordance with your Tender for ${data.tenderDescription || "[Description of tender items]"}, under your Tender No. ${data.tenderNumber || "[Tender Number]"} dated ${tenderDate} M/s. ${COMPANY.name} (Hereinafter called the Bidder) hereby submit the undertaking as under:`;
-  const openLines = doc.splitTextToSize(opening, contentWidth);
-  doc.text(openLines, margin, y);
-  y += openLines.length * 5.5 + 5;
+  const openLineCount = renderTextWithBoldParts(
+    doc, opening,
+    [data.tenderNumber, data.rfxNumber].filter(Boolean),
+    margin, y, contentWidth, 5.5
+  );
+  y += openLineCount * 5.5 + 5;
 
-  // Supply type paragraph
-  if (data.supplyType === "imported") {
-    const p1 = `The Bidder commits to undertake all measures necessary to follow Orders issued by Ministry of Power, Govt. of India (Num. 25 – 11 / 6 /2018 - PG Dt: 02-07-2020 & Num: No. 9 / 16 / 2016-Trans - Part (2) Dt: 18-11-2020 and / or subsequent orders / amendments if any) regarding testing of equipment, components, and parts imported for use in the Power Supply System and Network for any kind of embedded Malware / Trojans / Cyber Threat and for adherence to Indian Standards.`;
-    const p1Lines = doc.splitTextToSize(p1, contentWidth);
-    doc.text(p1Lines, margin, y);
-    y += p1Lines.length * 5.5 + 5;
+  // General statement (always present)
+  const pGeneral = `The Bidder commits to undertake all measures necessary to follow Orders issued by Ministry of Power, Govt. of India (Num. 25 – 11 / 6 /2018 - PG Dt: 02-07-2020 & Num: No. 9 / 16 / 2016-Trans - Part (2) Dt: 18-11-2020 and / or subsequent orders / amendments if any) regarding testing of equipment, components, and parts imported for use in the Power Supply System and Network for any kind of embedded Malware / Trojans / Cyber Threat and for adherence to Indian Standards.`;
+  const pGeneralLines = doc.splitTextToSize(pGeneral, contentWidth);
+  doc.text(pGeneralLines, margin, y);
+  y += pGeneralLines.length * 5.5 + 5;
 
-    const supplier = data.importSupplier || "[Supplier / Country of Origin]";
-    const p1b = `Equipment / components / parts to be supplied will be imported from ${supplier} and as such the same will be supplied by following prevailing directives issued by the Ministry of Power and any other statutory authorities for such imports. The necessary Test Certificates, regarding any kind of embedded Malware / Trojans / Cyber Threat and for adherence to Indian Standards, issued by the approved Laboratories will be provided while supplying the tendered material. Also copies of Permissions accorded by the statutory authorities for such import will also be provided any time, if asked for the same by the Purchasing Authorities.`;
-    const p1bLines = doc.splitTextToSize(p1b, contentWidth);
-    doc.text(p1bLines, margin, y);
-    y += p1bLines.length * 5.5 + 5;
-  } else {
-    const p2 = `No any equipment / components / parts to be supplied will be imported & the tendered material will be supplied indigenously and as such directives issued by the Ministry of Power or any other statutory authorities regarding imported items will not be applicable for such supplies.`;
-    const p2Lines = doc.splitTextToSize(p2, contentWidth);
-    doc.text(p2Lines, margin, y);
-    y += p2Lines.length * 5.5 + 5;
-  }
+  // --- Option A: Imported supply ---
+  const supplier = data.importSupplier || "[Supplier / Country of Origin]";
+  const pImported = `Equipment / components / parts to be supplied will be imported from ${supplier} and as such the same will be supplied by following prevailing directives issued by the Ministry of Power and any other statutory authorities for such imports. The necessary Test Certificates, regarding any kind of embedded Malware / Trojans / Cyber Threat and for adherence to Indian Standards, issued by the approved Laboratories will be provided while supplying the tendered material. Also copies of Permissions accorded by the statutory authorities for such import will also be provided any time, if asked for the same by the Purchasing Authorities.`;
+  const pImportedLines = doc.splitTextToSize(pImported, contentWidth);
+  const strikeImported = data.supplyType !== "imported";
+  drawTextWithOptionalStrike(doc, pImportedLines, margin, y, 5.5, strikeImported);
+  y += pImportedLines.length * 5.5 + 4;
+
+  // "OR" centered between the two options
+  doc.setFont("times", "bold");
+  doc.text("OR", pageWidth / 2, y, { align: "center" });
+  doc.setFont("times", "normal");
+  y += 6;
+
+  // --- Option B: Indigenous supply ---
+  const pIndigenous = `No any equipment / components / parts to be supplied will be imported & the tendered material will be supplied indigenously and as such directives issued by the Ministry of Power or any other statutory authorities regarding imported items will not be applicable for such supplies.`;
+  const pIndigenousLines = doc.splitTextToSize(pIndigenous, contentWidth);
+  const strikeIndigenous = data.supplyType !== "indigenous";
+  drawTextWithOptionalStrike(doc, pIndigenousLines, margin, y, 5.5, strikeIndigenous);
+  y += pIndigenousLines.length * 5.5 + 5;
 
   // Non-compliance warning
   const p3 = `The bidder has understood that non-compliance of the order (Num. 25 – 11 / 6 /2018 - PG Dt: 02-07-2020 & Num: No. 9 / 16 / 2016-Trans - Part (2) Dt: 18-11-2020 and / or subsequent orders / amendments if any), at any stage of Tendering Process / Order execution, may lead to disqualification from the tendering process / termination of Purchase Order / Contract and this shall lead to forfeiture of EMD / SD / Performance Deposit, as the case may be.`;
@@ -276,19 +344,19 @@ export async function addDeclarationToDoc(
 
 // ─── Load all Sterling images ─────────────────────────────────────────────────
 export async function loadSterlingImages() {
-  const [logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl] = await Promise.all([
-    loadImageAsDataURL("/sterling-logo.png"),
+  const [letterheadDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl] = await Promise.all([
+    loadLetterheadFromPDF(),
     loadImageAsDataURL("/sterling-stamp.png"),
     loadImageAsDataURL("/sterling-sig1.png"),
     loadImageAsDataURL("/sterling-sig2.png"),
   ]);
-  return { logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl };
+  return { letterheadDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl };
 }
 
 // ─── STANDALONE: Generate Declaration as its own PDF ─────────────────────────
 export async function generateDeclarationPDF(data: TenderFormData): Promise<void> {
-  const { logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl } = await loadSterlingImages();
+  const { letterheadDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl } = await loadSterlingImages();
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  await addDeclarationToDoc(doc, data, logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl);
+  await addDeclarationToDoc(doc, data, letterheadDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl);
   doc.save(`Sterling_Declaration_${data.tenderNumber || data.rfxNumber || "doc"}.pdf`);
 }

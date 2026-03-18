@@ -2,7 +2,7 @@
 
 import jsPDF from "jspdf";
 import { COMPANY, POWER_STATIONS, TenderFormData } from "./constants";
-import { addDeclarationToDoc, loadSterlingImages, addLetterheadHeader, addLetterheadFooter } from "./declarationPDF";
+import { addDeclarationToDoc, loadSterlingImages } from "./declarationPDF";
 import { addSelfDeclarationToDoc, addAnnexureCToDoc, addDeviationSheetToDoc, addQuestionnaireToDoc, addItemDetailsToDoc } from "./documentPDFs";
 
 const ORANGE = [249, 115, 22] as const;
@@ -587,31 +587,22 @@ export function generateQuestionnaire(doc: jsPDF, data: TenderFormData, startY: 
 // MAIN: Generate Combined Tender PDF (6 documents)
 // ============================================================
 export async function generateTenderPDF(data: TenderFormData): Promise<void> {
-  const { logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl } = await loadSterlingImages();
+  const { letterheadDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl } = await loadSterlingImages();
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  // Documents that use the old orange/navy style header
-  const oldStyleDocs = [
-    { fn: generateSelfDeclaration, name: "SELF DECLARATION" },
-    { fn: generateAnnexureC, name: "ANNEXURE-C" },
-    { fn: generateItemDetails, name: "ITEM DETAILS" },
-    { fn: generateDeviationSheet, name: "DEVIATION SHEET" },
-    { fn: generateQuestionnaire, name: "QUESTIONNAIRE" },
-  ];
+  // Page 1: Self Declaration — official Sterling letterhead from PDF
+  await addSelfDeclarationToDoc(doc, data, letterheadDataUrl, stampDataUrl);
 
-  // Page 1: Self Declaration — exact Sterling letterhead format
-  await addSelfDeclarationToDoc(doc, data, logoDataUrl, stampDataUrl);
-
-  // Page 2: Declaration/Undertaking — EXACT LETTERHEAD FORMAT
+  // Page 2: Declaration/Undertaking — official Sterling letterhead from PDF
   doc.addPage();
-  await addDeclarationToDoc(doc, data, logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl);
+  await addDeclarationToDoc(doc, data, letterheadDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl);
 
-  // Page 3: Annexure C — exact format
+  // Page 3: Annexure C — official Sterling letterhead from PDF
   doc.addPage();
-  await addAnnexureCToDoc(doc, data, logoDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl);
+  await addAnnexureCToDoc(doc, data, letterheadDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl);
 
   // Page 4: Item Details — MSPGCL plain format with stamp
   doc.addPage();
