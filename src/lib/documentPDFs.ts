@@ -65,11 +65,10 @@ export async function addSelfDeclarationToDoc(
   doc.text(c2Lines, margin, y);
   y += c2Lines.length * 6 + 8;
 
-  // If not enough space for stamp + sig block (need ~55mm), new page
+  // If not enough space for stamp + sig block (need ~55mm), new page (plain, no letterhead)
   if (y > pageHeight - 60) {
     doc.addPage();
-    addLetterheadFooter(doc, pageWidth, pageHeight);
-    y = 25;
+    y = 20;
   }
 
   y += 6;
@@ -209,7 +208,7 @@ export async function addAnnexureCToDoc(
     lines.forEach((line: string) => {
       if (y > pageHeight - 30) {
         doc.addPage();
-        addLetterheadFooter(doc, pageWidth, pageHeight);
+        // Overflow page is plain — no letterhead
         y = 20;
       }
       doc.text(line, margin, y);
@@ -220,11 +219,10 @@ export async function addAnnexureCToDoc(
 
   y += 5;
 
-  // If not enough space for stamp + full sig block (need ~75mm), new page
+  // If not enough space for stamp + full sig block (need ~75mm), new page (plain)
   if (y > pageHeight - 80) {
     doc.addPage();
-    addLetterheadFooter(doc, pageWidth, pageHeight);
-    y = 25;
+    y = 20;
   }
 
   // Stamp

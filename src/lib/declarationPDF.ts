@@ -61,8 +61,8 @@ export async function loadLetterheadFromPDF(): Promise<string> {
   hCtx.drawImage(canvas, 0, 0, viewport.width, headerPixelH, 0, 0, viewport.width, headerPixelH);
   _headerCache = hCrop.toDataURL("image/png");
 
-  // Crop FOOTER: bottom 6% of A4 (address + email + GST ≈ 18mm)
-  const footerRatio = 0.06;
+  // Crop FOOTER: bottom 8% of A4 (address + email + GST ≈ 24mm)
+  const footerRatio = 0.08;
   const footerPixelH = Math.floor(viewport.height * footerRatio);
   const footerStartY = viewport.height - footerPixelH;
   const fCrop = document.createElement("canvas");
@@ -115,8 +115,8 @@ export function addLetterheadHeader(doc: jsPDF, letterheadDataUrl: string, pageW
 // Places the pre-rendered letterhead PDF footer image at the bottom of the page.
 // Uses the cached footer from loadLetterheadFromPDF().
 export function addLetterheadFooter(doc: jsPDF, pageWidth: number, pageHeight: number) {
-  // Footer image = bottom 6% of A4 page ≈ 18mm
-  const FOOTER_HEIGHT_MM = 297 * 0.06; // ~17.8mm
+  // Footer image = bottom 8% of A4 page ≈ 24mm
+  const FOOTER_HEIGHT_MM = 297 * 0.08; // ~23.8mm
 
   if (_footerCache) {
     doc.addImage(_footerCache, "PNG", 0, pageHeight - FOOTER_HEIGHT_MM, pageWidth, FOOTER_HEIGHT_MM);
@@ -309,13 +309,12 @@ export async function addDeclarationToDoc(
 
   // Page overflow: stamp + signature + witnesses need ~85mm.
   // Footer occupies bottom ~18mm, so usable area ends at ~279mm.
-  const FOOTER_ZONE = 297 * 0.06; // ~18mm footer
+  const FOOTER_ZONE = 297 * 0.08; // ~24mm footer
   const SIG_BLOCK_NEED = 85; // stamp + date/place + name + witnesses
   if (y + SIG_BLOCK_NEED > pageHeight - FOOTER_ZONE) {
     doc.addPage();
-    addLetterheadHeader(doc, letterheadDataUrl, pageWidth);
-    addLetterheadFooter(doc, pageWidth, pageHeight);
-    y = 297 * 0.10 + 5; // below header
+    // Overflow page is plain — no letterhead header/footer
+    y = 20;
   }
 
   // Stamp above signature block (right side, centered over signature)
