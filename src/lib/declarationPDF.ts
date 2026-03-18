@@ -307,6 +307,17 @@ export async function addDeclarationToDoc(
   doc.text("This undertaking shall form a part of the contract.", margin, y);
   y += 10;
 
+  // Page overflow: stamp + signature + witnesses need ~85mm.
+  // Footer occupies bottom ~18mm, so usable area ends at ~279mm.
+  const FOOTER_ZONE = 297 * 0.06; // ~18mm footer
+  const SIG_BLOCK_NEED = 85; // stamp + date/place + name + witnesses
+  if (y + SIG_BLOCK_NEED > pageHeight - FOOTER_ZONE) {
+    doc.addPage();
+    addLetterheadHeader(doc, letterheadDataUrl, pageWidth);
+    addLetterheadFooter(doc, pageWidth, pageHeight);
+    y = 297 * 0.10 + 5; // below header
+  }
+
   // Stamp above signature block (right side, centered over signature)
   if (stampDataUrl) {
     const stampSize = 28; // 28mm x 28mm
