@@ -274,12 +274,13 @@ export async function addDeviationSheetToDoc(
   // Plain page — MSPGCL format (no Sterling letterhead)
   let y = 18;
 
-  // MSPGCL header — bold centered
+  // MSPGCL header — dark red/maroon bold centered (per original DOC)
   doc.setFont("times", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(139, 0, 0); // dark red per original DOC
   doc.text("MAHARASHTRA STATE POWER GENERATION COMPANY LIMITED", pageWidth / 2, y, { align: "center" });
   y += 8;
+  doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.8);
   doc.line(margin, y, pageWidth - margin, y);
   y += 2;
@@ -287,17 +288,21 @@ export async function addDeviationSheetToDoc(
   doc.line(margin, y, pageWidth - margin, y);
   y += 7;
 
-  // Title
+  // Title — green bold centered (per original DOC)
   doc.setFontSize(13);
+  doc.setTextColor(0, 128, 0); // green per original DOC
   doc.text("DEVIATIONS (IF ANY)", pageWidth / 2, y, { align: "center" });
   const dw = doc.getTextWidth("DEVIATIONS (IF ANY)");
   doc.setLineWidth(0.4);
+  doc.setDrawColor(0, 128, 0);
   doc.line(pageWidth / 2 - dw / 2, y + 1, pageWidth / 2 + dw / 2, y + 1);
   y += 8;
 
   // Tender info
   doc.setFont("times", "normal");
   doc.setFontSize(10.5);
+  doc.setTextColor(0, 0, 0);
+  doc.setDrawColor(0, 0, 0);
   const descLines = doc.splitTextToSize(data.tenderDescription || "[Tender Description]", contentWidth);
   doc.text(descLines, margin, y);
   y += descLines.length * 5 + 3;
@@ -321,10 +326,12 @@ export async function addDeviationSheetToDoc(
   y += 8;
 
   if (data.deviationStatus === "nil") {
-    // NIL DEVIATION box
+    // NIL DEVIATION box — red text per original DOC
     doc.setFont("times", "bold");
     doc.setFontSize(14);
+    doc.setTextColor(255, 0, 0); // red per original DOC
     doc.text("NIL/NO DEVIATION", pageWidth / 2, y + 12, { align: "center" });
+    doc.setTextColor(0, 0, 0);
     doc.setLineWidth(0.8);
     doc.rect(margin + 20, y, contentWidth - 40, 22);
     y += 30;
