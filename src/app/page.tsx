@@ -91,7 +91,7 @@ export default function Home() {
               unit: it.unit || "Nos",
               unitPrice: Number(it.unitPrice) || 0,
               techSpecs: it.techSpecs || "",
-              remarks: it.remarks || "",
+              remarks: "NO",
             }))
           : prev.items,
       }));
