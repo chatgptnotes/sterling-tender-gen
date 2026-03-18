@@ -148,7 +148,7 @@ export async function generateWithQACheck(
   generateFn: () => Promise<Blob>,
   filename: string,
   onProgress: (status: QAProgressStatus) => void,
-  maxRetries = 3
+  maxRetries = 1
 ): Promise<void> {
   let blob: Blob | undefined;
   let qaResult: QAResult | undefined;

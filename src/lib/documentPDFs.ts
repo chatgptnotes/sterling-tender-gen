@@ -272,7 +272,7 @@ export async function addDeviationSheetToDoc(
   const contentWidth = pageWidth - 2 * margin;
 
   // Plain page — MSPGCL format (no Sterling letterhead)
-  let y = 18;
+  let y = 25;
 
   // MSPGCL header — dark red/maroon bold centered (per original DOC)
   doc.setFont("times", "bold");
@@ -408,7 +408,7 @@ export async function addQuestionnaireToDoc(
   const contentWidth = pageWidth - 2 * margin;
 
   // Plain page — MSPGCL format (no Sterling letterhead)
-  let y = 18;
+  let y = 25;
 
   // MSPGCL header — dark red, bold italic per original DOC
   doc.setFont("times", "bolditalic");
@@ -549,7 +549,7 @@ export async function addItemDetailsToDoc(
   const margin = 15;
   const contentWidth = pageWidth - 2 * margin;
 
-  let y = 18;
+  let y = 25;
 
   // Title — bold centered (no MSPGCL header per original DOCX)
   doc.setFont("times", "bold");

@@ -89,7 +89,7 @@ export function addLetterheadHeader(doc: jsPDF, letterheadDataUrl: string, pageW
   doc.setTextColor(0, 0, 0);
   doc.setDrawColor(0, 0, 0);
 
-  return 33; // y position below the header area
+  return 42; // y position below the header area (extra clearance for letterhead)
 }
 
 // ─── LETTERHEAD FOOTER ───────────────────────────────────────────────────────
