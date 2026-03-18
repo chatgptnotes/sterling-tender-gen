@@ -3,9 +3,8 @@
 import { useState, useRef } from "react";
 import { Plus, Trash2, FileText, Receipt, Truck, ChevronDown, ChevronUp, Upload, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { TenderFormData, TenderItem, defaultFormData, defaultItem, POWER_STATIONS } from "@/lib/constants";
-import { generateTenderPDF, generateTaxInvoice, generateDeliveryMemo } from "@/lib/pdfGenerator";
-import { generateDeclarationPDF } from "@/lib/declarationPDF";
-// generateDeclarationPDF is used inside generateTenderPDF combined flow
+import { generateTenderPDF, generateTaxInvoice, generateDeliveryMemo, getTenderFilename } from "@/lib/pdfGenerator";
+import { generateWithQACheck, QAPageResult, QAProgressStatus } from "@/lib/pdfQualityCheck";
 
 type ParseStatus = "idle" | "uploading" | "parsing" | "done" | "error";
 
@@ -15,6 +14,9 @@ export default function Home() {
   const [parseStatus, setParseStatus] = useState<ParseStatus>("idle");
   const [parseError, setParseError] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [genStatus, setGenStatus] = useState<"idle" | "generating" | "checking" | "done" | "warning">("idle");
+  const [qaProgress, setQaProgress] = useState("");
+  const [qaWarnings, setQaWarnings] = useState<QAPageResult[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleSection = (key: keyof typeof openSections) =>
@@ -97,6 +99,53 @@ export default function Home() {
     } catch (err: unknown) {
       setParseError(err instanceof Error ? err.message : "Unknown error");
       setParseStatus("error");
+    }
+  };
+
+  const handleGenerateWithQA = async () => {
+    setGenStatus("generating");
+    setQaProgress("Generating PDF...");
+    setQaWarnings([]);
+
+    try {
+      await generateWithQACheck(
+        () => generateTenderPDF(form),
+        getTenderFilename(form),
+        (status: QAProgressStatus) => {
+          if (status.stage === "generating") {
+            setGenStatus("generating");
+            setQaProgress("Generating PDF...");
+          } else if (status.stage === "checking") {
+            setGenStatus("checking");
+            setQaProgress(`Checking page ${status.page}/${status.total}...`);
+          } else if (status.stage === "retrying") {
+            setGenStatus("generating");
+            setQaProgress(`Retrying (attempt ${status.attempt}/3)...`);
+          } else if (status.stage === "done") {
+            if (status.result.allMatch) {
+              setGenStatus("done");
+              setQaProgress("All pages verified!");
+            } else {
+              setGenStatus("warning");
+              setQaWarnings(status.result.pages.filter((p) => !p.match));
+              setQaProgress("Downloaded with quality warnings");
+            }
+            setTimeout(() => {
+              setGenStatus("idle");
+              setQaProgress("");
+              setQaWarnings([]);
+            }, 8000);
+          } else if (status.stage === "error") {
+            setGenStatus("idle");
+            setQaProgress("");
+            console.error(status.message);
+          }
+        }
+      );
+    } catch (err) {
+      console.error(err);
+      setGenStatus("idle");
+      setQaProgress("");
     }
   };
 
@@ -461,12 +510,32 @@ export default function Home() {
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-3 pt-2">
           <button
-            onClick={() => generateTenderPDF(form).catch(console.error)}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg text-white font-bold text-sm shadow-md hover:opacity-90 transition-opacity"
+            onClick={handleGenerateWithQA}
+            disabled={genStatus !== "idle"}
+            className="flex items-center gap-2 px-6 py-3 rounded-lg text-white font-bold text-sm shadow-md hover:opacity-90 transition-opacity disabled:opacity-60"
             style={{ background: "#1E3A5F" }}
           >
-            <FileText size={16} />
-            Generate Tender Documents (Combined PDF)
+            {genStatus === "idle" ? (
+              <>
+                <FileText size={16} />
+                Generate Tender Documents (Combined PDF)
+              </>
+            ) : genStatus === "generating" || genStatus === "checking" ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                {qaProgress}
+              </>
+            ) : genStatus === "done" ? (
+              <>
+                <CheckCircle size={16} />
+                {qaProgress}
+              </>
+            ) : (
+              <>
+                <AlertCircle size={16} />
+                {qaProgress}
+              </>
+            )}
           </button>
           <button
             onClick={() => generateTaxInvoice(form)}
@@ -485,6 +554,21 @@ export default function Home() {
             Generate Delivery Memo
           </button>
         </div>
+
+        {/* QA Warnings */}
+        {qaWarnings.length > 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-sm font-semibold text-yellow-800 mb-2">Quality Check Warnings</p>
+            {qaWarnings.map((w, i) => (
+              <div key={i} className="text-xs text-yellow-700 mb-1">
+                <span className="font-medium">Page {w.pageIndex + 1} ({w.pageType}):</span>
+                {w.differences.map((d, j) => (
+                  <div key={j} className="ml-4">- {d.element}: expected &quot;{d.expected}&quot;, got &quot;{d.actual}&quot;</div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Tender Docs Info */}
         <div className="rounded-lg border p-4 bg-white text-xs text-gray-600">

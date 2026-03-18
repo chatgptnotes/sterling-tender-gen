@@ -586,7 +586,7 @@ export function generateQuestionnaire(doc: jsPDF, data: TenderFormData, startY: 
 // ============================================================
 // MAIN: Generate Combined Tender PDF (6 documents)
 // ============================================================
-export async function generateTenderPDF(data: TenderFormData): Promise<void> {
+export async function generateTenderPDF(data: TenderFormData): Promise<Blob> {
   const { letterheadDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl } = await loadSterlingImages();
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -616,8 +616,13 @@ export async function generateTenderPDF(data: TenderFormData): Promise<void> {
   doc.addPage();
   await addQuestionnaireToDoc(doc, data, stampDataUrl);
 
+  const output = doc.output("arraybuffer");
+  return new Blob([output], { type: "application/pdf" });
+}
+
+export function getTenderFilename(data: TenderFormData): string {
   const tenderRef = data.tenderNumber || data.rfxNumber || "tender";
-  doc.save(`Sterling_Tender_${tenderRef}_${data.date || "doc"}.pdf`);
+  return `Sterling_Tender_${tenderRef}_${data.date || "doc"}.pdf`;
 }
 
 // ============================================================

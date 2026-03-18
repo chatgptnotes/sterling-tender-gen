@@ -21,14 +21,37 @@ export async function loadImageAsDataURL(src: string): Promise<string> {
   });
 }
 
-// ─── LETTERHEAD LOGO LOADER ──────────────────────────────────────────────────
-// Loads the Sterling logo PNG for use in the letterhead header.
-let _logoCache: string | null = null;
+// ─── LETTERHEAD PDF RENDERER ──────────────────────────────────────────────────
+// Renders the official Sterling Letter head.pdf to a high-res PNG for use as a
+// full-page background on letterhead pages.
+let _letterheadCache: string | null = null;
 
-export async function loadLogoImage(): Promise<string> {
-  if (_logoCache) return _logoCache;
-  _logoCache = await loadImageAsDataURL("/sterling-logo.png");
-  return _logoCache;
+export async function renderLetterheadPNG(): Promise<string> {
+  if (_letterheadCache) return _letterheadCache;
+
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+
+  const response = await fetch("/sterling-letterhead.pdf");
+  const arrayBuffer = await response.arrayBuffer();
+
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+  const page = await pdf.getPage(1);
+
+  const scale = 3;
+  const viewport = page.getViewport({ scale });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not acquire canvas 2D context for letterhead rendering");
+
+  await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+
+  _letterheadCache = canvas.toDataURL("image/png");
+  pdf.destroy();
+  return _letterheadCache;
 }
 
 export function getStation(data: TenderFormData) {
@@ -53,62 +76,26 @@ export function formatDate(dateStr: string): string {
 }
 
 // ─── LETTERHEAD HEADER ───────────────────────────────────────────────────────
-// Matches the official Sterling Letter head.pdf exactly:
-// - Logo image top-left
-// - "STERLING ELECTRICALS & TECHNOLOGIES" in red, left-aligned below logo
-// - Blue/gray horizontal divider line across the page
-export function addLetterheadHeader(doc: jsPDF, logoDataUrl: string, pageWidth: number): number {
-  const margin = 15;
-  const RED: [number, number, number] = [192, 0, 0];
-  const BLUE_GRAY: [number, number, number] = [100, 130, 170];
+// Places the full-page letterhead PDF (rendered as PNG) as a background image.
+// The header, divider, and footer are all part of the background.
+export function addLetterheadHeader(doc: jsPDF, letterheadDataUrl: string, pageWidth: number): number {
+  const pageHeight = doc.internal.pageSize.getHeight();
 
-  let y = 6;
-
-  // Logo — top left
-  if (logoDataUrl) {
-    const logoW = 28;
-    const logoH = 18;
-    doc.addImage(logoDataUrl, "PNG", margin, y, logoW, logoH);
-    y += logoH + 1;
-  } else {
-    y += 12;
+  if (letterheadDataUrl) {
+    doc.addImage(letterheadDataUrl, "PNG", 0, 0, pageWidth, pageHeight);
   }
 
-  // Company name — red, left-aligned below logo
-  doc.setFont("times", "bold");
-  doc.setFontSize(14);
-  doc.setTextColor(...RED);
-  doc.text("STERLING ELECTRICALS & TECHNOLOGIES", margin, y);
-  y += 4;
-
-  // Blue/gray horizontal divider line
-  doc.setDrawColor(...BLUE_GRAY);
-  doc.setLineWidth(0.8);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 4;
-
-  // Reset
+  // Reset colors for content drawn on top
   doc.setTextColor(0, 0, 0);
   doc.setDrawColor(0, 0, 0);
 
-  return y; // ~33mm from top
+  return 33; // y position below the header area
 }
 
 // ─── LETTERHEAD FOOTER ───────────────────────────────────────────────────────
-// Matches the official Sterling Letter head.pdf footer exactly:
-// Line 1: Address-Plot No 1-A, Arya Nagar, Behind Koradi Naka, NAGPUR-440 030, MAHARASHTRA, INDIA
-// Line 2: E-mail- akhilbahale@rediffmail.com, Website: www.sterlingtech.in, Contact No- 7972534245,
-// Line 3: GST No.: 27AJUPB8533A1Z9
-export function addLetterheadFooter(doc: jsPDF, pageWidth: number, pageHeight: number) {
-  const margin = 15;
-  const footerY = pageHeight - 18;
-
-  doc.setFont("times", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(0, 0, 0);
-  doc.text("Address-Plot No 1-A, Arya Nagar, Behind Koradi Naka, NAGPUR-440 030, MAHARASHTRA, INDIA", margin, footerY);
-  doc.text("E-mail- akhilbahale@rediffmail.com, Website: www.sterlingtech.in, Contact No- 7972534245,", margin, footerY + 4);
-  doc.text("GST No.: 27AJUPB8533A1Z9", margin, footerY + 8);
+// Footer is part of the full-page letterhead background — no-op.
+export function addLetterheadFooter(_doc: jsPDF, _pageWidth: number, _pageHeight: number) {
+  // No-op: footer is rendered as part of the letterhead PDF background image
 }
 
 // ─── INLINE BOLD HELPER ──────────────────────────────────────────────────────
@@ -345,7 +332,7 @@ export async function addDeclarationToDoc(
 // ─── Load all Sterling images ─────────────────────────────────────────────────
 export async function loadSterlingImages() {
   const [letterheadDataUrl, stampDataUrl, sig1DataUrl, sig2DataUrl] = await Promise.all([
-    loadLogoImage(),
+    renderLetterheadPNG(),
     loadImageAsDataURL("/sterling-stamp.png"),
     loadImageAsDataURL("/sterling-sig1.png"),
     loadImageAsDataURL("/sterling-sig2.png"),

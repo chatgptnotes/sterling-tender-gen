@@ -279,23 +279,12 @@ export async function addDeviationSheetToDoc(
   doc.setFontSize(12);
   doc.setTextColor(139, 0, 0); // dark red per original DOC
   doc.text("MAHARASHTRA STATE POWER GENERATION COMPANY LIMITED", pageWidth / 2, y, { align: "center" });
-  y += 8;
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.8);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 2;
-  doc.setLineWidth(0.3);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 7;
+  y += 17;
 
-  // Title — green bold centered (per original DOC)
+  // Title — green bold centered, NO underline (per original DOC)
   doc.setFontSize(13);
   doc.setTextColor(0, 128, 0); // green per original DOC
   doc.text("DEVIATIONS (IF ANY)", pageWidth / 2, y, { align: "center" });
-  const dw = doc.getTextWidth("DEVIATIONS (IF ANY)");
-  doc.setLineWidth(0.4);
-  doc.setDrawColor(0, 128, 0);
-  doc.line(pageWidth / 2 - dw / 2, y + 1, pageWidth / 2 + dw / 2, y + 1);
   y += 8;
 
   // Tender info
@@ -319,22 +308,18 @@ export async function addDeviationSheetToDoc(
   doc.text(data.tenderNumber || "[Tender Number]", margin + doc.getTextWidth("Tender No- "), y);
   doc.setFont("times", "normal");
   doc.text(`Date: ${formatDate(data.date)}`, pageWidth - margin, y, { align: "right" });
-  y += 8;
-
-  doc.setLineWidth(0.5);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 8;
+  y += 16;
 
   if (data.deviationStatus === "nil") {
     // NIL DEVIATION box — red text per original DOC
     doc.setFont("times", "bold");
     doc.setFontSize(14);
     doc.setTextColor(255, 0, 0); // red per original DOC
-    doc.text("NIL/NO DEVIATION", pageWidth / 2, y + 12, { align: "center" });
+    doc.text("NIL/NO DEVIATION", pageWidth / 2, y + 14, { align: "center" });
     doc.setTextColor(0, 0, 0);
     doc.setLineWidth(0.8);
-    doc.rect(margin + 20, y, contentWidth - 40, 22);
-    y += 30;
+    doc.rect(margin, y, contentWidth, 28);
+    y += 36;
     doc.setFont("times", "normal");
     doc.setFontSize(10.5);
     const nilText = "We hereby confirm that our offer is fully compliant with all the terms, conditions, technical specifications and requirements mentioned in the tender document. There are no deviations whatsoever from the tender specifications.";
@@ -425,33 +410,27 @@ export async function addQuestionnaireToDoc(
   // Plain page — MSPGCL format (no Sterling letterhead)
   let y = 18;
 
-  // MSPGCL header
-  doc.setFont("times", "bold");
+  // MSPGCL header — dark red, bold italic per original DOC
+  doc.setFont("times", "bolditalic");
   doc.setFontSize(12);
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(139, 0, 0);
   doc.text("MAHARASHTRA STATE POWER GENERATION COMPANY LIMITED", pageWidth / 2, y, { align: "center" });
-  y += 7;
-  doc.setLineWidth(0.8);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 2;
-  doc.setLineWidth(0.3);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 5;
+  doc.setTextColor(0, 0, 0);
+  y += 14;
 
-  doc.setFont("times", "normal");
+  // Sub + Ref — dark blue, bold italic per original DOC
+  doc.setFont("times", "bolditalic");
   doc.setFontSize(10);
+  doc.setTextColor(0, 0, 128);
   const sub = `Sub:  ${data.tenderDescription || "[Tender Description]"}`;
   const subLines = doc.splitTextToSize(sub, contentWidth);
   doc.text(subLines, margin, y);
   y += subLines.length * 5 + 2;
   doc.text("Ref.: E-Tender. ", margin, y);
-  doc.setFont("times", "bold");
   doc.text(data.rfxNumber || "[RFx]", margin + doc.getTextWidth("Ref.: E-Tender. "), y);
+  doc.setTextColor(0, 0, 0);
   doc.setFont("times", "normal");
-  y += 5;
-  doc.setLineWidth(0.5);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 5;
+  y += 10;
 
   // Table
   const col1 = 10, col2 = 80, col3 = contentWidth - 90;
@@ -488,7 +467,7 @@ export async function addQuestionnaireToDoc(
       "Terms of Payment :  100% payment will be made within a period of 45 days after the receipt of material at site in good condition against GRN issued by consignee & submission of bills in triplicate to AGM (F & A)",
       "Acceptable",
     ],
-    ["2", "Validity   ( To be counted from the date of opening of Techno commercial bid )\n60 days", "Acceptable"],
+    ["2", "Validity   ( To be counted from the date of opening of Techno commercial bid )\n60 days", "60 days"],
     ["3", "Acceptance for Scope of Supply and Special Terms and Conditions", "Acceptable"],
     ["4", "Delivery Period :-.", data.deliveryPeriod || "As per tender"],
     ["5", "Manufacturer / Dealer ( Pls Specify)", data.dealerType || "Authorized Dealer"],
