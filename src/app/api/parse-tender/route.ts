@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || "").trim();
 const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
-  GEMINI_API_KEY;
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 const EXTRACTION_PROMPT = `
 You are an expert at reading MSPGCL (Maharashtra State Power Generation Company Limited) tender/RFQ documents.
@@ -59,6 +58,13 @@ Return ONLY the JSON, nothing else.
 
 export async function POST(req: NextRequest) {
   try {
+    if (!GEMINI_API_KEY) {
+      return NextResponse.json(
+        { error: "Tender parsing not configured — set GEMINI_API_KEY env var" },
+        { status: 503 }
+      );
+    }
+
     const formData = await req.formData();
 
     // Support both single "file" and multiple "files"
@@ -126,7 +132,10 @@ export async function POST(req: NextRequest) {
     // Call Gemini with all parts in one request
     const geminiRes = await fetch(GEMINI_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY,
+      },
       body: JSON.stringify({
         contents: [{ parts }],
         generationConfig: {

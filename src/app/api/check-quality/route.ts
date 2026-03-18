@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || "").trim();
 const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
-  GEMINI_API_KEY;
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 const PAGE_DESCRIPTIONS: Record<string, string> = {
   "self-declaration": `Self Declaration page with Sterling letterhead:
@@ -114,7 +113,10 @@ If the page matches the reference format closely (minor rendering differences ar
 
     const geminiRes = await fetch(GEMINI_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY,
+      },
       body: JSON.stringify({
         contents: [
           {
