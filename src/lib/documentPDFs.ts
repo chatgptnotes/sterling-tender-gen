@@ -344,32 +344,32 @@ export async function addDeviationSheetToDoc(
     y += 6;
 
     const colWidths = [10, 55, 60, 60];
-    doc.setFillColor(30, 58, 95);
-    doc.rect(margin, y, contentWidth, 7, "F");
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, y, contentWidth, 7, "S");
     doc.setFont("times", "bold");
     doc.setFontSize(8.5);
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(0, 0, 0);
     let xp = margin + 2;
     ["Sr.", "Clause / Specification", "Tender Requirement", "Our Offer / Deviation"].forEach((h, i) => {
       doc.text(h, xp, y + 5);
       xp += colWidths[i];
     });
     y += 7;
-    doc.setTextColor(0, 0, 0);
 
     const devLines = data.deviationText
       ? data.deviationText.split("\n").filter((l) => l.trim())
       : ["[Enter deviation details]"];
 
     devLines.forEach((line, idx) => {
-      doc.setFillColor(idx % 2 === 0 ? 255 : 248, idx % 2 === 0 ? 255 : 248, idx % 2 === 0 ? 255 : 248);
-      doc.rect(margin, y, contentWidth, 10, "F");
       doc.setFont("times", "normal");
       doc.setFontSize(8.5);
+      doc.setTextColor(0, 0, 0);
       doc.text(String(idx + 1), margin + 2, y + 7);
       const wrapped = doc.splitTextToSize(line, colWidths[3] - 4);
       doc.text(wrapped[0] || "", margin + colWidths[0] + colWidths[1] + colWidths[2] + 2, y + 7);
-      doc.setDrawColor(200, 200, 200);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.2);
       doc.rect(margin, y, contentWidth, 10, "S");
       y += 10;
     });
@@ -452,12 +452,15 @@ export async function addQuestionnaireToDoc(
   const col1 = 10, col2 = 80, col3 = contentWidth - 90;
   const headerH = 8;
 
-  // Table header
-  doc.setFillColor(30, 58, 95);
-  doc.rect(margin, y, contentWidth, headerH, "F");
+  // Table header — plain borders, no colored fill (per original DOC)
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(margin, y, contentWidth, headerH, "S");
+  doc.line(margin + col1, y, margin + col1, y + headerH);
+  doc.line(margin + col1 + col2, y, margin + col1 + col2, y + headerH);
   doc.setFont("times", "bold");
   doc.setFontSize(8.5);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(0, 0, 0);
   doc.text("Sr.", margin + 2, y + 6);
   doc.text("PARTICULARS", margin + col1 + 2, y + 6);
   doc.text("Information / Comments to be  filled by the Supplier", margin + col1 + col2 + 2, y + 6);
@@ -507,17 +510,14 @@ export async function addQuestionnaireToDoc(
     const aLines = doc.splitTextToSize(answer, col3 - 4);
     const rowH = Math.max(pLines.length, aLines.length) * 5 + 4;
 
-    if (idx % 2 === 0) {
-      doc.setFillColor(245, 245, 245);
-      doc.rect(margin, y, contentWidth, rowH, "F");
-    }
     doc.setFont("times", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(0, 0, 0);
     doc.text(sr, margin + 2, y + 6);
     doc.text(pLines, margin + col1 + 2, y + 5);
     doc.text(aLines, margin + col1 + col2 + 2, y + 5);
-    doc.setDrawColor(180, 180, 180);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.2);
     doc.rect(margin, y, contentWidth, rowH, "S");
     // column dividers
     doc.line(margin + col1, y, margin + col1, y + rowH);
@@ -588,13 +588,11 @@ export async function addItemDetailsToDoc(
     { header: "REMARKS\n(IF ANY)", width: 23 },
   ];
 
-  // Header row
+  // Header row — plain table with borders, no colored fill (per original DOCX)
   const headerH = 16;
-  doc.setFillColor(30, 58, 95);
-  doc.rect(margin, y, contentWidth, headerH, "F");
   doc.setFont("times", "bold");
   doc.setFontSize(7.5);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(0, 0, 0);
   let xp = margin;
   cols.forEach((col) => {
     const lines = col.header.split("\n");
@@ -606,13 +604,14 @@ export async function addItemDetailsToDoc(
     });
     xp += col.width;
   });
-  // Column dividers in header
+  // Header border and column dividers
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.rect(margin, y, contentWidth, headerH, "S");
   xp = margin;
   cols.forEach((col, i) => {
     xp += col.width;
     if (i < cols.length - 1) {
-      doc.setDrawColor(100, 140, 180);
-      doc.setLineWidth(0.2);
       doc.line(xp, y, xp, y + headerH);
     }
   });
@@ -628,11 +627,6 @@ export async function addItemDetailsToDoc(
       1
     );
     const rowH = Math.max(rowLines * 5 + 4, 12);
-
-    if (idx % 2 === 0) {
-      doc.setFillColor(248, 250, 252);
-      doc.rect(margin, y, contentWidth, rowH, "F");
-    }
 
     doc.setFont("times", "normal");
     doc.setFontSize(8.5);
@@ -654,8 +648,8 @@ export async function addItemDetailsToDoc(
       xp += col.width;
     });
 
-    // Row border + column dividers
-    doc.setDrawColor(200, 200, 200);
+    // Row border + column dividers — black borders (per original DOCX)
+    doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.2);
     doc.rect(margin, y, contentWidth, rowH, "S");
     xp = margin;
