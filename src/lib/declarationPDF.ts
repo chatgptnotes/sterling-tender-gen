@@ -22,12 +22,15 @@ export async function loadImageAsDataURL(src: string): Promise<string> {
 }
 
 // ─── RENDER LETTERHEAD FROM PDF ───────────────────────────────────────────────
-// Renders the official Sterling letterhead PDF header as a high-quality PNG data URL.
-// Cached after first render so subsequent calls are instant.
-let _letterheadCache: string | null = null;
+// Renders BOTH the header and footer from the official Sterling letterhead PDF.
+// Header = top portion (logo + company name + divider)
+// Footer = bottom portion (address, email, website, GST)
+// Both are cached after first render.
+let _headerCache: string | null = null;
+let _footerCache: string | null = null;
 
 export async function loadLetterheadFromPDF(): Promise<string> {
-  if (_letterheadCache) return _letterheadCache;
+  if (_headerCache) return _headerCache;
 
   // Dynamic import — only runs in browser, avoids SSR issues
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,20 +51,29 @@ export async function loadLetterheadFromPDF(): Promise<string> {
 
   await page.render({ canvasContext: ctx, viewport }).promise;
 
-  // Crop just the header (top 19% of A4 = ~56mm of 297mm)
-  const headerRatio = 0.19;
+  // Crop HEADER: top 10% of A4 (logo + company name + divider ≈ 30mm)
+  const headerRatio = 0.10;
   const headerPixelH = Math.floor(viewport.height * headerRatio);
+  const hCrop = document.createElement("canvas");
+  hCrop.width = viewport.width;
+  hCrop.height = headerPixelH;
+  const hCtx = hCrop.getContext("2d")!;
+  hCtx.drawImage(canvas, 0, 0, viewport.width, headerPixelH, 0, 0, viewport.width, headerPixelH);
+  _headerCache = hCrop.toDataURL("image/png");
 
-  const cropped = document.createElement("canvas");
-  cropped.width = viewport.width;
-  cropped.height = headerPixelH;
-  const croppedCtx = cropped.getContext("2d")!;
-  croppedCtx.drawImage(canvas, 0, 0, viewport.width, headerPixelH, 0, 0, viewport.width, headerPixelH);
+  // Crop FOOTER: bottom 6% of A4 (address + email + GST ≈ 18mm)
+  const footerRatio = 0.06;
+  const footerPixelH = Math.floor(viewport.height * footerRatio);
+  const footerStartY = viewport.height - footerPixelH;
+  const fCrop = document.createElement("canvas");
+  fCrop.width = viewport.width;
+  fCrop.height = footerPixelH;
+  const fCtx = fCrop.getContext("2d")!;
+  fCtx.drawImage(canvas, 0, footerStartY, viewport.width, footerPixelH, 0, 0, viewport.width, footerPixelH);
+  _footerCache = fCrop.toDataURL("image/png");
 
-  _letterheadCache = cropped.toDataURL("image/png");
   pdf.destroy();
-
-  return _letterheadCache;
+  return _headerCache;
 }
 
 export function getStation(data: TenderFormData) {
@@ -86,39 +98,29 @@ export function formatDate(dateStr: string): string {
 }
 
 // ─── LETTERHEAD HEADER ───────────────────────────────────────────────────────
-// Places the pre-rendered letterhead PDF image at the top of the page.
-// The image is the cropped header from the official Sterling letterhead PDF.
+// Places the pre-rendered letterhead PDF header image at the top of the page.
+// New letterhead: logo left-aligned + company name + blue divider (compact ~30mm)
 export function addLetterheadHeader(doc: jsPDF, letterheadDataUrl: string, pageWidth: number): number {
-  // Header image = top 19% of A4 page ≈ 56mm
-  const HEADER_HEIGHT_MM = 297 * 0.19; // ~56.4mm
+  // Header image = top 10% of A4 page ≈ 30mm
+  const HEADER_HEIGHT_MM = 297 * 0.10; // ~29.7mm
 
   if (letterheadDataUrl) {
     doc.addImage(letterheadDataUrl, "PNG", 0, 0, pageWidth, HEADER_HEIGHT_MM);
   }
 
-  return HEADER_HEIGHT_MM + 2; // content starts ~58mm from top
+  return HEADER_HEIGHT_MM + 2; // content starts ~32mm from top
 }
 
 // ─── LETTERHEAD FOOTER ───────────────────────────────────────────────────────
+// Places the pre-rendered letterhead PDF footer image at the bottom of the page.
+// Uses the cached footer from loadLetterheadFromPDF().
 export function addLetterheadFooter(doc: jsPDF, pageWidth: number, pageHeight: number) {
-  const margin = 15;
-  const footerY = pageHeight - 14;
-  const RED: [number, number, number] = [212, 32, 39];
+  // Footer image = bottom 6% of A4 page ≈ 18mm
+  const FOOTER_HEIGHT_MM = 297 * 0.06; // ~17.8mm
 
-  // Red top line for footer
-  doc.setDrawColor(...RED);
-  doc.setLineWidth(1);
-  doc.line(margin, footerY - 3, pageWidth - margin, footerY - 3);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  doc.setTextColor(0, 0, 0);
-  doc.text(`Address- ${COMPANY.address}`, pageWidth / 2, footerY + 1, { align: "center" });
-  doc.text(
-    `E-mail- ${COMPANY.email}  |  Website: ${COMPANY.website}  |  Contact No- ${COMPANY.contact}  |  GST No.: ${COMPANY.gst}`,
-    pageWidth / 2, footerY + 5, { align: "center" }
-  );
-  doc.setDrawColor(0, 0, 0);
+  if (_footerCache) {
+    doc.addImage(_footerCache, "PNG", 0, pageHeight - FOOTER_HEIGHT_MM, pageWidth, FOOTER_HEIGHT_MM);
+  }
 }
 
 // ─── INLINE BOLD HELPER ──────────────────────────────────────────────────────
